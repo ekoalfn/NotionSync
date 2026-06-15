@@ -1,0 +1,1 @@
+ALTER TABLE public.notion_projects ADD COLUMN IF NOT EXISTS target_hours_per_week numeric;
