@@ -231,6 +231,11 @@ function ProjectDetailContent() {
             {project.totalHours.toFixed(1)}
             <span className="text-foreground/50 text-2xl">h</span>
           </p>
+          {project.manHours > project.totalHours + 0.05 && (
+            <p className="text-[10px] font-mono text-foreground/50 mt-1">
+              {project.manHours.toFixed(1)}h man-hours
+            </p>
+          )}
         </div>
       </header>
 

@@ -74,9 +74,22 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
+      // viewport-fit=cover lets us paint into the iPhone notch / home-indicator safe areas
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
       { title: "NowTrack — Team progress, weekly clarity" },
       { name: "description", content: "Inowtech PM hub: weekly recap, time tracking, dan AI insights tim — sync dari Notion." },
+      // PWA / browser chrome theming. Light + dark variants so the URL bar
+      // (Chrome / Edge / Safari iOS) blends with our liquid-glass surface.
+      { name: "theme-color", content: "#0f0e1a", media: "(prefers-color-scheme: dark)" },
+      { name: "theme-color", content: "#f7f7fb", media: "(prefers-color-scheme: light)" },
+      // iOS: enables "Add to Home Screen" full-screen standalone mode.
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-title", content: "NowTrack" },
+      // black-translucent makes the iOS status bar overlay our content, so the
+      // top bar's pt-safe push handles the gap naturally.
+      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+      { name: "mobile-web-app-capable", content: "yes" },
+      { name: "application-name", content: "NowTrack" },
       { property: "og:title", content: "NowTrack" },
       { property: "og:description", content: "Inowtech PM hub: weekly recap, time tracking, dan AI insights tim — sync dari Notion." },
       { property: "og:type", content: "website" },
@@ -84,6 +97,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     ],
     links: [
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
+      // iOS-specific home-screen icon (PNG, no transparency, square).
+      { rel: "apple-touch-icon", sizes: "180x180", href: "/pwa-180x180.png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" },

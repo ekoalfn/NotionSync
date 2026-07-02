@@ -19,7 +19,7 @@ import {
   listRelationTargetPages,
 } from "@/lib/notion.functions";
 import type { NotionTreeNode } from "@/lib/notion.functions";
-import { AI_PROVIDERS, getAiConfig, setAiConfig, listAiModels, type AiProviderId } from "@/lib/settings.functions";
+import { AI_PROVIDERS, getAiConfig, setAiConfig, listAiModels, getCapacityConfig, setCapacityConfig, type AiProviderId } from "@/lib/settings.functions";
 import { useEffect } from "react";
 import { Pager, usePager } from "@/components/Pager";
 
@@ -285,6 +285,33 @@ function SettingsPage() {
     },
   });
 
+  // ─── Capacity config (normal hours per week, used by Monthly Report utilization %) ───
+  const fetchCapacity = useServerFn(getCapacityConfig);
+  const saveCapacity = useServerFn(setCapacityConfig);
+  const capQuery = useQuery({ queryKey: ["capacity-config"], queryFn: () => fetchCapacity() });
+  const [normalHours, setNormalHours] = useState<string>("42");
+  const [capSaved, setCapSaved] = useState(false);
+  useEffect(() => {
+    if (capQuery.data?.normalHoursPerWeek) {
+      setNormalHours(String(capQuery.data.normalHoursPerWeek));
+    }
+  }, [capQuery.data]);
+  const updateCapacity = useMutation({
+    mutationFn: () => {
+      const n = Number(normalHours);
+      if (!Number.isFinite(n) || n <= 0 || n > 168) {
+        throw new Error("Jam normal harus angka antara 1 dan 168.");
+      }
+      return saveCapacity({ data: { normalHoursPerWeek: n } });
+    },
+    onSuccess: () => {
+      setCapSaved(true);
+      qc.invalidateQueries({ queryKey: ["capacity-config"] });
+      qc.invalidateQueries({ queryKey: ["monthly-report"] });
+      setTimeout(() => setCapSaved(false), 2000);
+    },
+  });
+
   const currentPreset = AI_PROVIDERS.find((p) => p.id === aiProvider) ?? AI_PROVIDERS[0];
   const applyPreset = (id: AiProviderId) => {
     const p = AI_PROVIDERS.find((x) => x.id === id) ?? AI_PROVIDERS[0];
@@ -355,31 +382,37 @@ function SettingsPage() {
             )}
           </p>
         )}
-        <div className="flex gap-2">
+        {/* Token input row: on mobile, the input takes the full width on its own
+            row and the action buttons sit on a row below. On desktop they're
+            still inline. `min-w-0` on the input is required because <input>
+            has an intrinsic minimum content size that defeats flex-1 otherwise. */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="password"
             value={tokenInput}
             onChange={(e) => setTokenInput(e.target.value)}
             placeholder="ntn_xxxxxxxxxxxx..."
-            className="flex-1 px-4 py-3 bg-white/5 border border-white/10 rounded-xl backdrop-blur text-sm font-mono"
+            className="flex-1 min-w-0 w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl backdrop-blur text-sm font-mono"
             autoComplete="off"
           />
-          <button
-            disabled={saveToken.isPending || tokenInput.trim().length < 20}
-            onClick={() => saveToken.mutate(tokenInput.trim())}
-            className="px-4 py-3 bg-foreground text-background rounded-xl text-sm font-bold disabled:opacity-50"
-          >
-            {saveToken.isPending ? "Memvalidasi…" : "Simpan"}
-          </button>
-          {tokenStatus.data?.source === "database" && (
+          <div className="flex gap-2">
             <button
-              onClick={() => clearToken.mutate()}
-              disabled={clearToken.isPending}
-              className="px-4 py-3 border border-white/10 rounded-xl text-sm hover:bg-white/5 disabled:opacity-50"
+              disabled={saveToken.isPending || tokenInput.trim().length < 20}
+              onClick={() => saveToken.mutate(tokenInput.trim())}
+              className="flex-1 sm:flex-none px-4 py-3 bg-foreground text-background rounded-xl text-sm font-bold disabled:opacity-50 whitespace-nowrap"
             >
-              Hapus
+              {saveToken.isPending ? "Memvalidasi…" : "Simpan"}
             </button>
-          )}
+            {tokenStatus.data?.source === "database" && (
+              <button
+                onClick={() => clearToken.mutate()}
+                disabled={clearToken.isPending}
+                className="flex-1 sm:flex-none px-4 py-3 border border-white/10 rounded-xl text-sm hover:bg-white/5 disabled:opacity-50 whitespace-nowrap"
+              >
+                Hapus
+              </button>
+            )}
+          </div>
         </div>
         {tokenMsg && <p className="text-xs text-foreground/60 mt-3">{tokenMsg}</p>}
         <p className="text-[11px] text-foreground/40 mt-3">
@@ -762,6 +795,48 @@ function SettingsPage() {
           Anthropic-compatible (incl. Custom) → pakai <code>/messages</code> dgn header <code>x-api-key</code> + <code>anthropic-version</code>.
         </p>
       </section>
+
+      {/* Capacity Settings — used for Monthly Report utilization % */}
+      <section className="glass rounded-[2rem] p-6 md:p-8 mt-6 md:mt-8">
+        <h2 className="font-display font-semibold text-lg md:text-xl mb-1">Capacity</h2>
+        <p className="text-xs text-foreground/50 mb-5">
+          Jam kerja "normal" per orang per minggu. Dipakai Monthly Report untuk hitung
+          utilization % (mis. <code>14.5h / 42h = 34%</code>).
+        </p>
+        <label className="flex flex-col gap-1 max-w-[260px]">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-foreground/40">
+            Normal hours per week
+          </span>
+          <input
+            type="number"
+            step="0.5"
+            min={1}
+            max={168}
+            value={normalHours}
+            onChange={(e) => setNormalHours(e.target.value)}
+            className="px-3 py-2 rounded-xl glass-tile text-sm bg-transparent focus:outline-none focus:ring-1 focus:ring-foreground/20 text-foreground/90"
+          />
+          <span className="text-[10px] text-foreground/40 mt-1">
+            Default 42 (5 hari × 8.4 jam). Bisa di-set 35, 40, 45, dll.
+          </span>
+        </label>
+        <div className="flex items-center gap-3 mt-4">
+          <button
+            disabled={updateCapacity.isPending}
+            onClick={() => updateCapacity.mutate()}
+            className="px-4 py-2 bg-foreground text-background rounded-xl text-sm font-bold disabled:opacity-50"
+          >
+            {updateCapacity.isPending ? "Menyimpan…" : "Simpan Capacity"}
+          </button>
+          {capSaved && <span className="text-xs text-foreground/60">Tersimpan ✓</span>}
+          {updateCapacity.error && (
+            <span className="text-xs text-rose-300">
+              {(updateCapacity.error as Error).message}
+            </span>
+          )}
+        </div>
+      </section>
+
       {addOpen && typeof document !== "undefined" && createPortal(
         <div
           className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"

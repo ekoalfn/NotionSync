@@ -197,7 +197,7 @@ export function FloatingChat() {
       <button
         onClick={() => setOpen((v) => !v)}
         aria-label="Open AI assistant"
-        className="fixed bottom-6 right-6 z-50 size-14 rounded-full glass-strong flex items-center justify-center text-foreground shadow-[0_10px_40px_-10px_var(--glass-inset)] hover:scale-110 active:scale-95 transition-all duration-300 ease-out"
+        className="fixed bottom-28 right-4 md:bottom-6 md:right-6 z-50 size-14 rounded-full glass-strong flex items-center justify-center text-foreground shadow-[0_10px_40px_-10px_var(--glass-inset)] hover:scale-110 active:scale-95 transition-all duration-300 ease-out"
       >
         <div className="relative size-5">
           <div className={cn("absolute inset-0 flex items-center justify-center transition-all duration-300 ease-out", open ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-50")}>
@@ -224,7 +224,7 @@ export function FloatingChat() {
       {panelVisible && (
         <div
           className={cn(
-            "fixed bottom-24 right-6 z-50 w-[min(380px,calc(100vw-3rem))] h-[min(560px,calc(100vh-8rem))] glass-strong rounded-[1.75rem] flex flex-col overflow-hidden border border-foreground/10 shadow-[0_24px_60px_-20px_oklch(0_0_0/0.35)] transition-all duration-300 ease-out",
+            "fixed bottom-44 right-4 md:bottom-24 md:right-6 z-50 w-[min(380px,calc(100vw-2rem))] h-[min(560px,calc(100vh-13rem))] md:h-[min(560px,calc(100vh-8rem))] glass-strong rounded-[1.75rem] flex flex-col overflow-hidden border border-foreground/10 shadow-[0_24px_60px_-20px_oklch(0_0_0/0.35)] transition-all duration-300 ease-out",
             open
               ? "opacity-100 translate-y-0 scale-100 pointer-events-auto"
               : "opacity-0 translate-y-5 scale-95 pointer-events-none"

@@ -141,3 +141,43 @@ export const listAiModels = createServerFn({ method: "POST" })
       .sort();
     return { models, source: "live" as const };
   });
+// ─────────────────────────────────────────────────────────────────────────────
+// Capacity config — "normal hours per week" used for capacity utilization %.
+// Stored as a single key in app_settings; default 42 (5×8h-30min lunch).
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEFAULT_NORMAL_HOURS = 42;
+
+export const getCapacityConfig = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("app_settings")
+    .select("key,value")
+    .eq("key", "normal_hours_per_week")
+    .maybeSingle();
+  const raw = data?.value;
+  const n = raw ? Number(raw) : NaN;
+  const normalHoursPerWeek = Number.isFinite(n) && n > 0 ? n : DEFAULT_NORMAL_HOURS;
+  return { normalHoursPerWeek };
+});
+
+export const setCapacityConfig = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      // Sane bounds: 1h..168h (a week max). Caller can pick anything in between.
+      normalHoursPerWeek: z.number().min(1).max(168),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin.from("app_settings").upsert(
+      {
+        key: "normal_hours_per_week",
+        value: String(data.normalHoursPerWeek),
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "key" },
+    );
+    if (error) throw new Error(error.message);
+    return { ok: true, normalHoursPerWeek: data.normalHoursPerWeek };
+  });

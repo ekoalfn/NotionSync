@@ -6,22 +6,36 @@ import { listProjects } from "@/lib/notion.functions";
 import { useTheme } from "./ThemeProvider";
 import { FloatingChat } from "./FloatingChat";
 import { PageSkeleton } from "./PageSkeleton";
+import { MobileBottomNav } from "./MobileBottomNav";
 import { useAuth } from "@/hooks/use-auth";
 
 const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/projects", label: "Projects" },
   { to: "/team", label: "Team" },
+  { to: "/monthly", label: "Monthly" },
   { to: "/ai-insights", label: "AI Insights" },
   { to: "/settings", label: "Settings" },
 ] as const;
 
-const colorMap: Record<string, string> = {
-  blue: "bg-foreground/60",
-  purple: "bg-foreground/60",
-  orange: "bg-foreground/60",
-  green: "bg-foreground/60",
+// Notion-named colors → real CSS values for the sidebar project dot.
+// Keeps the dot visually tied to each project (matches the project recap on the
+// dashboard which already uses the same palette).
+const SIDEBAR_PRESET: Record<string, string> = {
+  purple: "#a855f7",
+  blue: "#3b82f6",
+  green: "#10b981",
+  orange: "#f97316",
+  pink: "#ec4899",
+  red: "#ef4444",
+  yellow: "#eab308",
+  cyan: "#06b6d4",
 };
+function resolveSidebarColor(c: string | null | undefined): string {
+  if (!c) return "rgb(168 168 168 / 0.6)"; // neutral fallback
+  if (c.startsWith("#")) return c;
+  return SIDEBAR_PRESET[c] ?? "rgb(168 168 168 / 0.6)";
+}
 
 export function AppLayout({ children }: { children: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
@@ -99,11 +113,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </div>
 
       <div className="flex min-h-screen p-4 md:p-6 gap-6">
-        <aside className="glass-strong rounded-[2rem] w-64 flex flex-col p-6 gap-8 shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)]">
+        <aside className="hidden md:flex glass-strong rounded-[2rem] w-64 flex-col p-6 gap-8 shrink-0 sticky top-4 self-start max-h-[calc(100vh-2rem)]">
           <div className="flex items-center justify-between">
             <Link to="/" className="flex items-center gap-3 group">
-              <div className="size-8 rounded-full bg-foreground shadow-[0_0_20px_var(--glass-inset)] flex items-center justify-center transition-transform group-hover:scale-110">
-                <div className="size-2.5 bg-background rounded-full animate-pulse" />
+              <div className="size-9 rounded-2xl bg-background/40 shadow-[0_0_20px_var(--glass-inset)] flex items-center justify-center transition-transform group-hover:scale-110 overflow-hidden">
+                <img src="/logo.svg" alt="" aria-hidden className="size-7 object-contain" />
               </div>
               <span className="font-display font-extrabold text-lg tracking-[0.18em]">NOWTRACK</span>
             </Link>
@@ -143,18 +157,38 @@ export function AppLayout({ children }: { children: ReactNode }) {
             <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40 mb-4">
               Active Projects
             </div>
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-1">
               {projects.length === 0 ? (
                 <Link to="/settings" className="text-xs text-foreground/50 hover:text-foreground transition-colors">
                   + Connect a Notion database
                 </Link>
               ) : (
-                projects.map((p) => (
-                  <div key={p.id} className="flex items-center gap-3 text-sm">
-                    <div className="size-2 rounded-full bg-foreground/60" />
-                    <span className="truncate text-foreground/80">{p.name}</span>
-                  </div>
-                ))
+                projects.map((p) => {
+                  // Highlight current project when its detail page is active so users
+                  // see where they are inside the projects/$projectId route.
+                  const isActive =
+                    pathname === `/projects/${p.id}` ||
+                    pathname.startsWith(`/projects/${p.id}/`);
+                  return (
+                    <Link
+                      key={p.id}
+                      to="/projects/$projectId"
+                      params={{ projectId: p.id }}
+                      className={
+                        isActive
+                          ? "flex items-center gap-3 text-sm px-3 py-2 -mx-3 rounded-xl glass text-foreground"
+                          : "flex items-center gap-3 text-sm px-3 py-2 -mx-3 rounded-xl text-foreground/70 hover:text-foreground hover:bg-foreground/[0.05] hover:translate-x-0.5 transition-all"
+                      }
+                      title={p.name}
+                    >
+                      <div
+                        className="size-2 rounded-full shrink-0"
+                        style={{ backgroundColor: resolveSidebarColor(p.color) }}
+                      />
+                      <span className="truncate">{p.name}</span>
+                    </Link>
+                  );
+                })
               )}
             </div>
 
@@ -191,12 +225,58 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </aside>
 
-        <main className="flex-1 min-w-0 p-4 md:p-6 overflow-y-auto">
+        <main className="flex-1 min-w-0 p-4 md:p-6 overflow-x-hidden overflow-y-auto mobile-nav-clearance md:!pb-0">
+          {/* Mobile-only top bar (sidebar is hidden on small screens).
+              Carries brand, theme toggle, and account quick action. Desktop unchanged. */}
+          <header className="md:hidden mb-4 flex items-center justify-between gap-3 glass-tile rounded-2xl px-4 py-3 pt-safe">
+            <Link to="/" className="flex items-center gap-2.5 min-w-0">
+              <div className="size-8 rounded-xl bg-background/40 shadow-[0_0_18px_var(--glass-inset)] flex items-center justify-center shrink-0 overflow-hidden">
+                <img src="/logo.svg" alt="" aria-hidden className="size-6 object-contain" />
+              </div>
+              <span className="font-display font-extrabold text-sm tracking-[0.18em] truncate">NOWTRACK</span>
+            </Link>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                onClick={toggle}
+                aria-label="Toggle theme"
+                className="size-9 rounded-full glass-tile flex items-center justify-center text-foreground/70 active:scale-90 transition-transform"
+              >
+                {theme === "dark" ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                )}
+              </button>
+              {user ? (
+                <button
+                  onClick={async () => {
+                    await queryClient.cancelQueries();
+                    queryClient.clear();
+                    await signOut();
+                    navigate({ to: "/auth", replace: true });
+                  }}
+                  aria-label="Sign out"
+                  className="size-9 rounded-full glass-tile flex items-center justify-center text-foreground/70 active:scale-90 transition-transform"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                </button>
+              ) : (
+                <Link
+                  to="/auth"
+                  className="px-3 h-9 inline-flex items-center bg-foreground text-background rounded-full text-[11px] font-bold"
+                >
+                  Sign in
+                </Link>
+              )}
+            </div>
+          </header>
+
           <div key={resolvedPathname} className="animate-page-soft">
             <Suspense fallback={<PageSkeleton />}>{children}</Suspense>
           </div>
         </main>
       </div>
+      <MobileBottomNav />
       <FloatingChat />
     </div>
   );

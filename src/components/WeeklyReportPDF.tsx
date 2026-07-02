@@ -39,10 +39,10 @@ const styles = StyleSheet.create({
   metaSub: { fontSize: 8, color: "#555", marginTop: 2 },
 
   sectionTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontFamily: "Helvetica-Bold",
-    marginBottom: 8,
-    marginTop: 4,
+    marginBottom: 6,
+    marginTop: 12,
   },
   kpiRow: { flexDirection: "row", gap: 8, marginBottom: 14 },
   kpiBox: {
@@ -96,11 +96,11 @@ const styles = StyleSheet.create({
   td: { fontSize: 8, color: "#222" },
 
   // Column widths (project task table)
-  cTitle: { width: "40%", paddingRight: 4 },
+  cTitle: { width: "38%", paddingRight: 4 },
   cStatus: { width: "15%" },
   cAssign: { width: "25%" },
   cHrs: { width: "10%", textAlign: "right" },
-  cDate: { width: "10%", textAlign: "right" },
+  cDate: { width: "12%", textAlign: "right" },
 
   // Person table cols
   pName: { width: "45%" },
@@ -129,6 +129,42 @@ const styles = StyleSheet.create({
     borderTop: "0.5pt solid #ddd",
     paddingTop: 6,
   },
+
+  // ── Project detail specific ──────────────────────────────────────────────
+  projHeroRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: 12,
+  },
+  projHeroName: { fontSize: 18, fontFamily: "Helvetica-Bold" },
+  projHeroHours: { fontSize: 22, fontFamily: "Helvetica-Bold", textAlign: "right" },
+  projHeroSub: { fontSize: 8, color: "#666", textAlign: "right", marginTop: 2 },
+
+  // Target / progress bar
+  targetBox: { border: "1pt solid #ddd", borderRadius: 4, padding: 10, marginBottom: 12 },
+  targetRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  targetLabel: { fontSize: 9, fontFamily: "Helvetica-Bold" },
+  targetBadge: { fontSize: 7, fontFamily: "Helvetica-Bold", textTransform: "uppercase", letterSpacing: 0.8, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 3 },
+  progressTrack: { height: 6, backgroundColor: "#eee", borderRadius: 3, marginBottom: 5 },
+  progressBar: { height: 6, backgroundColor: "#222", borderRadius: 3 },
+  targetStats: { flexDirection: "row", justifyContent: "space-between" },
+  targetStatText: { fontSize: 8, color: "#666" },
+
+  // Highlights row
+  highlightRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  highlightBox: { flex: 1, border: "1pt solid #eee", borderRadius: 4, padding: 8 },
+  highlightLabel: { fontSize: 7, color: "#888", textTransform: "uppercase", letterSpacing: 0.8, marginBottom: 3 },
+  highlightValue: { fontSize: 12, fontFamily: "Helvetica-Bold" },
+  highlightSub: { fontSize: 7, color: "#888", marginTop: 2 },
+
+  // Hours by person bars
+  personRow: { flexDirection: "row", alignItems: "center", marginBottom: 5 },
+  personName: { fontSize: 8, width: "28%", paddingRight: 6 },
+  personBarTrack: { flex: 1, height: 5, backgroundColor: "#eee", borderRadius: 2 },
+  personBarFill: { height: 5, backgroundColor: "#333", borderRadius: 2 },
+  personHrs: { fontSize: 8, width: "16%", textAlign: "right", color: "#444", fontFamily: "Helvetica-Bold" },
+  personTasks: { fontSize: 7, width: "16%", textAlign: "right", color: "#999" },
 });
 
 function fmtDateRange(start: string, end: string) {
@@ -179,29 +215,120 @@ function ProjectPage({ project, weekStart, weekEnd, generatedAt }: {
   weekEnd: string;
   generatedAt: string;
 }) {
-  // Group tasks by assignee
-  const byPerson = new Map<string, typeof project.tasks>();
+  const target = project.targetHoursPerWeek;
+  const targetPct = target && target > 0
+    ? Math.min(100, (project.totalHours / target) * 100)
+    : null;
+  const remaining = target != null ? target - project.totalHours : null;
+
+  // Track status (mirror web logic)
+  let trackLabel = "No target set";
+  let trackBg = "#e5e5e5";
+  let trackColor = "#666";
+  if (target != null && target > 0) {
+    if (project.totalHours >= target) { trackLabel = "Target met"; trackBg = "#222"; trackColor = "#fff"; }
+    else if (targetPct! >= 75) { trackLabel = "On track"; trackBg = "#555"; trackColor = "#fff"; }
+    else if (targetPct! >= 40) { trackLabel = "Behind"; trackBg = "#999"; trackColor = "#fff"; }
+    else { trackLabel = "Far behind"; trackBg = "#ccc"; trackColor = "#333"; }
+  }
+
+  // Per-person aggregation — hours split by assignee count (same as web)
+  const peopleMap = new Map<string, { name: string; hours: number; tasks: number }>();
   for (const t of project.tasks) {
-    const owners = t.assignees.length ? t.assignees : ["Unassigned"];
-    for (const o of owners) {
-      if (!byPerson.has(o)) byPerson.set(o, []);
-      byPerson.get(o)!.push(t);
+    const list = t.assignees.length ? t.assignees : ["Unassigned"];
+    const share = t.duration / list.length;
+    for (const a of list) {
+      const cur = peopleMap.get(a) ?? { name: a, hours: 0, tasks: 0 };
+      cur.hours += share;
+      cur.tasks += 1;
+      peopleMap.set(a, cur);
     }
   }
-  const persons = Array.from(byPerson.entries()).sort((a, b) => {
-    const ha = a[1].reduce((s, t) => s + (t.duration / Math.max(t.assignees.length || 1, 1)), 0);
-    const hb = b[1].reduce((s, t) => s + (t.duration / Math.max(t.assignees.length || 1, 1)), 0);
-    return hb - ha;
-  });
+  const people = Array.from(peopleMap.values())
+    .map((p) => ({ ...p, hours: Number(p.hours.toFixed(2)) }))
+    .sort((a, b) => b.hours - a.hours);
+  const maxPersonHours = Math.max(1, ...people.map((p) => p.hours));
+
+  // Highlights
+  const totalTasks = project.tasks.length;
+  const avgDuration = totalTasks
+    ? project.tasks.reduce((s, t) => s + t.duration, 0) / totalTasks
+    : 0;
+  const longestTask = project.tasks.reduce<(typeof project.tasks)[number] | null>(
+    (acc, t) => (!acc || t.duration > acc.duration ? t : acc), null,
+  );
+  const completionRate = totalTasks
+    ? Math.round((project.tasksDone / totalTasks) * 100)
+    : 0;
+  const topContributor = people[0] ?? null;
+
+  // Tasks sorted by date desc
+  const tasksSorted = [...project.tasks].sort((a, b) =>
+    (b.date ?? "").localeCompare(a.date ?? ""),
+  );
 
   return (
     <Page size="A4" style={styles.page}>
       <Header subtitle={`Project · ${project.name}`} weekStart={weekStart} weekEnd={weekEnd} generatedAt={generatedAt} />
 
+      {/* Hero: project name + total hours */}
+      <View style={styles.projHeroRow}>
+        <View>
+          <Text style={styles.projHeroName}>{project.name}</Text>
+          <Text style={{ fontSize: 8, color: "#666", marginTop: 2 }}>
+            {weekStart} → {new Date(weekEnd).toISOString().slice(0, 10)}
+          </Text>
+        </View>
+        <View>
+          <Text style={styles.projHeroHours}>{project.totalHours.toFixed(1)}h</Text>
+          {project.manHours > project.totalHours + 0.05 && (
+            <Text style={styles.projHeroSub}>{project.manHours.toFixed(1)}h man-hours</Text>
+          )}
+        </View>
+      </View>
+
+      {/* Target progress */}
+      {target != null && target > 0 ? (
+        <View style={styles.targetBox}>
+          <View style={styles.targetRow}>
+            <Text style={styles.targetLabel}>Weekly target — goal: {target}h</Text>
+            <Text style={[styles.targetBadge, { backgroundColor: trackBg, color: trackColor }]}>
+              {trackLabel}
+            </Text>
+          </View>
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressBar, { width: `${targetPct!.toFixed(1)}%` as any }]} />
+          </View>
+          <View style={styles.targetStats}>
+            <Text style={styles.targetStatText}>
+              {project.totalHours.toFixed(1)}h / {target}h ({targetPct!.toFixed(0)}%)
+            </Text>
+            {remaining! > 0 && (
+              <Text style={styles.targetStatText}>{remaining!.toFixed(1)}h to go</Text>
+            )}
+            {remaining! < 0 && (
+              <Text style={styles.targetStatText}>+{Math.abs(remaining!).toFixed(1)}h over target</Text>
+            )}
+            {topContributor && (
+              <Text style={styles.targetStatText}>
+                Top: {topContributor.name} ({topContributor.hours.toFixed(1)}h)
+              </Text>
+            )}
+          </View>
+        </View>
+      ) : (
+        <View style={[styles.targetBox, { backgroundColor: "#fafafa" }]}>
+          <Text style={{ fontSize: 8, color: "#999" }}>
+            No weekly target set. {project.totalHours.toFixed(1)}h logged this week.
+          </Text>
+        </View>
+      )}
+
+      {/* KPI grid */}
       <View style={styles.kpiRow}>
         <View style={styles.kpiBox}>
-          <Text style={styles.kpiLabel}>Total Hours</Text>
-          <Text style={styles.kpiValue}>{project.totalHours.toFixed(1)}h</Text>
+          <Text style={styles.kpiLabel}>Total Tasks</Text>
+          <Text style={styles.kpiValue}>{totalTasks}</Text>
         </View>
         <View style={styles.kpiBox}>
           <Text style={styles.kpiLabel}>Done</Text>
@@ -215,43 +342,82 @@ function ProjectPage({ project, weekStart, weekEnd, generatedAt }: {
           <Text style={styles.kpiLabel}>Blocked</Text>
           <Text style={styles.kpiValue}>{project.tasksBlocked}</Text>
         </View>
-        {project.targetHoursPerWeek != null && (
-          <View style={styles.kpiBox}>
-            <Text style={styles.kpiLabel}>Target / week</Text>
-            <Text style={styles.kpiValue}>{project.targetHoursPerWeek}h</Text>
-          </View>
-        )}
       </View>
 
-      {persons.length === 0 ? (
-        <Text style={{ fontSize: 9, color: "#666" }}>No tasks this week.</Text>
-      ) : (
-        persons.map(([person, tasks]) => (
-          <View key={person} style={styles.projectCard} wrap>
-            <View style={styles.projectHeader}>
-              <Text style={styles.projectName}>{person}</Text>
-              <Text style={styles.projectMeta}>{tasks.length} task{tasks.length === 1 ? "" : "s"}</Text>
-            </View>
-            <View style={styles.tableHead}>
-              <Text style={[styles.th, styles.cTitle]}>Task</Text>
-              <Text style={[styles.th, styles.cStatus]}>Status</Text>
-              <Text style={[styles.th, styles.cAssign]}>Co-Assignees</Text>
-              <Text style={[styles.th, styles.cHrs]}>Hrs</Text>
-              <Text style={[styles.th, styles.cDate]}>Date</Text>
-            </View>
-            {tasks.map((t) => (
-              <View key={t.id} style={styles.tr} wrap={false}>
-                <Text style={[styles.td, styles.cTitle]}>{t.title}</Text>
-                <Text style={[styles.td, styles.cStatus]}>{statusLabel(t)}</Text>
-                <Text style={[styles.td, styles.cAssign]}>
-                  {t.assignees.filter((a) => a !== person).join(", ") || "—"}
-                </Text>
-                <Text style={[styles.td, styles.cHrs]}>{t.duration.toFixed(1)}</Text>
-                <Text style={[styles.td, styles.cDate]}>{t.date ?? "—"}</Text>
-              </View>
-            ))}
+      {/* Hours by person + Highlights side by side */}
+      <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+        {/* Hours by person (70%) */}
+        <View style={{ flex: 7, border: "1pt solid #ddd", borderRadius: 4, padding: 10 }}>
+          <Text style={styles.sectionTitle}>Hours by Person</Text>
+          {people.length === 0 ? (
+            <Text style={{ fontSize: 8, color: "#999" }}>No contributors this week.</Text>
+          ) : (
+            people.map((p) => {
+              const pct = (p.hours / maxPersonHours) * 100;
+              const sharePct = project.totalHours > 0
+                ? ((p.hours / project.totalHours) * 100).toFixed(0)
+                : "0";
+              return (
+                <View key={p.name} style={styles.personRow}>
+                  <Text style={styles.personName} numberOfLines={1}>{p.name}</Text>
+                  <View style={styles.personBarTrack}>
+                    <View style={[styles.personBarFill, { width: `${pct.toFixed(1)}%` as any }]} />
+                  </View>
+                  <Text style={styles.personHrs}>{p.hours.toFixed(1)}h</Text>
+                  <Text style={styles.personTasks}>{p.tasks}t · {sharePct}%</Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* Highlights (30%) */}
+        <View style={{ flex: 3, border: "1pt solid #ddd", borderRadius: 4, padding: 10 }}>
+          <Text style={styles.sectionTitle}>Highlights</Text>
+          <View style={{ marginBottom: 8 }}>
+            <Text style={styles.highlightLabel}>Avg duration / task</Text>
+            <Text style={styles.highlightValue}>{avgDuration.toFixed(1)}h</Text>
           </View>
-        ))
+          <View style={{ marginBottom: 8 }}>
+            <Text style={styles.highlightLabel}>Longest task</Text>
+            <Text style={styles.highlightValue}>{longestTask ? `${longestTask.duration.toFixed(1)}h` : "—"}</Text>
+            {longestTask && (
+              <Text style={styles.highlightSub} numberOfLines={2}>{longestTask.title}</Text>
+            )}
+          </View>
+          <View>
+            <Text style={styles.highlightLabel}>Completion rate</Text>
+            <Text style={styles.highlightValue}>{completionRate}%</Text>
+            <Text style={styles.highlightSub}>{project.tasksDone}/{totalTasks} tasks</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Tasks this week — full table */}
+      <Text style={styles.sectionTitle}>Tasks This Week ({tasksSorted.length})</Text>
+      {tasksSorted.length === 0 ? (
+        <Text style={{ fontSize: 9, color: "#666" }}>No tasks recorded this week.</Text>
+      ) : (
+        <View>
+          <View style={styles.tableHead}>
+            <Text style={[styles.th, styles.cTitle]}>Task</Text>
+            <Text style={[styles.th, styles.cAssign]}>Assignees</Text>
+            <Text style={[styles.th, styles.cStatus]}>Status</Text>
+            <Text style={[styles.th, styles.cDate]}>Date</Text>
+            <Text style={[styles.th, styles.cHrs]}>Hrs</Text>
+          </View>
+          {tasksSorted.map((t) => (
+            <View key={t.id} style={styles.tr} wrap={false}>
+              <Text style={[styles.td, styles.cTitle]}>{t.title}</Text>
+              <Text style={[styles.td, styles.cAssign]}>
+                {t.assignees.length ? t.assignees.join(", ") : "Unassigned"}
+              </Text>
+              <Text style={[styles.td, styles.cStatus]}>{statusLabel(t)}</Text>
+              <Text style={[styles.td, styles.cDate]}>{t.date ?? "—"}</Text>
+              <Text style={[styles.td, styles.cHrs]}>{t.duration.toFixed(1)}</Text>
+            </View>
+          ))}
+        </View>
       )}
 
       <Footer />

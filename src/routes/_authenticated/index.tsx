@@ -89,17 +89,21 @@ function DashboardContent() {
 
   return (
     <>
-      <header className="flex items-center justify-between mb-10">
-        <div>
-          <h1 className="text-4xl font-display font-extrabold tracking-tight">Weekly Overview</h1>
-          <p className="text-foreground/50 text-sm flex items-center gap-2 mt-1">
-            <span className="size-1.5 rounded-full bg-foreground/60 animate-pulse" />
+      <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between mb-6 md:mb-10">
+        <div className="min-w-0">
+          <h1 className="text-2xl md:text-4xl font-display font-extrabold tracking-tight">Weekly Overview</h1>
+          <p className="text-foreground/50 text-xs md:text-sm flex items-center gap-2 mt-1">
+            <span className="size-1.5 rounded-full bg-foreground/60 animate-pulse shrink-0" />
+            <span className="truncate">
             {sync?.lastSync
               ? `Synced from Notion · ${new Date(sync.lastSync).toLocaleString()}`
               : "Syncing from Notion"}
+            </span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        {/* Toolbar: on mobile this wraps to the next row and items can wrap among
+            themselves so the week-pager + Export PDF never push beyond the viewport. */}
+        <div className="flex flex-wrap items-center gap-2 -mx-1 px-1 md:flex-nowrap md:mx-0 md:px-0">
           <button
             onClick={() =>
               downloadWeeklyReport(
@@ -113,28 +117,30 @@ function DashboardContent() {
                 `nowtrack-weekly-${agg.weekStart}.pdf`,
               )
             }
-            className="px-4 py-2 text-xs font-bold tracking-wider uppercase glass rounded-full hover:bg-foreground/10 transition-colors"
+            className="px-3 md:px-4 py-2 text-[11px] md:text-xs font-bold tracking-wider uppercase glass rounded-full hover:bg-foreground/10 transition-colors shrink-0"
             title="Export weekly report as PDF"
           >
             ⬇ Export PDF
           </button>
-          <div className="glass rounded-full p-1.5 flex items-center gap-1">
+          <div className="glass rounded-full p-1.5 flex items-center gap-0.5 md:gap-1 shrink-0">
             <button
               onClick={() => setWeekStart(shiftWeek(agg.weekStart, -1))}
-              className="px-3 py-1.5 text-sm text-foreground/50 hover:text-foreground rounded-full transition-colors"
+              className="px-2.5 md:px-3 py-1.5 text-sm text-foreground/50 hover:text-foreground rounded-full transition-colors"
+              aria-label="Previous week"
             >
               ←
             </button>
-            <span className="px-3 text-sm font-mono text-foreground/70">{formatRange(agg.weekStart, agg.weekEnd)}</span>
+            <span className="px-2 md:px-3 text-[11px] md:text-sm font-mono text-foreground/70 whitespace-nowrap">{formatRange(agg.weekStart, agg.weekEnd)}</span>
             <button
               onClick={() => setWeekStart(undefined)}
-              className="px-5 py-1.5 text-xs font-bold tracking-wider uppercase bg-white text-black rounded-full shadow-[0_4px_20px_oklch(1_0_0_/_0.25)] hover:scale-105 active:scale-95 transition-transform"
+              className="px-3 md:px-5 py-1.5 text-[10px] md:text-xs font-bold tracking-wider uppercase bg-white text-black rounded-full shadow-[0_4px_20px_oklch(1_0_0_/_0.25)] hover:scale-105 active:scale-95 transition-transform"
             >
               Today
             </button>
             <button
               onClick={() => setWeekStart(shiftWeek(agg.weekStart, 1))}
-              className="px-3 py-1.5 text-sm text-foreground/50 hover:text-foreground rounded-full transition-colors"
+              className="px-2.5 md:px-3 py-1.5 text-sm text-foreground/50 hover:text-foreground rounded-full transition-colors"
+              aria-label="Next week"
             >
               →
             </button>
@@ -143,7 +149,18 @@ function DashboardContent() {
       </header>
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
-        <StatCard label="Total Hours" value={agg.totalHours.toFixed(1)} note={isFetching ? "Refreshing…" : "Logged this week"} delay="0ms" />
+        <StatCard
+          label="Total Hours"
+          value={agg.totalHours.toFixed(1)}
+          note={
+            isFetching
+              ? "Refreshing…"
+              : agg.manHours > agg.totalHours + 0.05
+              ? `${agg.manHours.toFixed(1)} man-hours · ${(agg.manHours / Math.max(agg.totalHours, 0.0001)).toFixed(2)}× collab`
+              : "Logged this week"
+          }
+          delay="0ms"
+        />
         <StatCard label="Tasks Done" value={String(agg.tasksDone).padStart(2, "0")} note="Completed" delay="60ms" />
         <StatCard label="In Progress" value={String(agg.tasksInProgress).padStart(2, "0")} note="Active work" delay="120ms" />
         <StatCard label="Blocked" value={String(agg.tasksBlocked).padStart(2, "0")} note={agg.tasksBlocked > 0 ? "Action required" : "All clear"} delay="180ms" />
@@ -154,6 +171,12 @@ function DashboardContent() {
       ) : (
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
           <div className="xl:col-span-8 space-y-8">
+            <TeamProjectMatrix
+              projects={agg.projects.map((p) => ({ id: p.projectId, name: p.name, color: p.color, manHours: p.manHours }))}
+              people={agg.perPerson.map((p) => ({ name: p.name, byProject: p.byProject, totalHours: p.totalHours }))}
+              grandManHours={agg.manHours}
+            />
+
             <section className="glass rounded-[2rem] p-8">
               <div className="flex items-baseline justify-between mb-6">
                 <h3 className="font-display font-semibold text-lg">Hours per Person</h3>
@@ -234,7 +257,12 @@ function DashboardContent() {
                         </p>
                       </div>
                     </div>
-                    <p className="font-mono font-bold">{p.totalHours.toFixed(1)}h</p>
+                    <div className="text-right shrink-0">
+                      <p className="font-mono font-bold leading-none">{p.totalHours.toFixed(1)}h</p>
+                      {p.manHours > p.totalHours + 0.05 && (
+                        <p className="text-[10px] font-mono text-foreground/45 mt-1">{p.manHours.toFixed(1)}h manned</p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -346,5 +374,234 @@ function EmptyState() {
         Open Settings →
       </Link>
     </div>
+  );
+}
+
+/**
+ * TeamProjectMatrix — pivot of team members × projects with hours per cell.
+ *
+ * Renders TWO mutually-exclusive layouts:
+ *   - Mobile (<lg): card stack — one glass card per member with project
+ *     breakdown inside; horizontal scroll avoided entirely. Grand totals
+ *     surface as a separate summary card at the top.
+ *   - Desktop (≥lg): traditional matrix table with sticky-left team column,
+ *     project columns + rightmost Total column + footer Total row.
+ *
+ * Why two layouts: at typical real data (5-8 members × 5-8 projects) the
+ * full matrix is ~900px wide. Horizontally-scrolling a wide table on a
+ * 390px phone is hostile UX — users miss columns and lose row alignment.
+ * Cards are a native mobile pattern that present the same info without
+ * any horizontal scrolling.
+ */
+function TeamProjectMatrix({
+  projects,
+  people,
+  grandManHours,
+}: {
+  projects: Array<{ id: string; name: string; color: string | null; manHours: number }>;
+  people: Array<{ name: string; byProject: Record<string, number>; totalHours: number }>;
+  grandManHours: number;
+}) {
+  if (projects.length === 0 || people.length === 0) return null;
+
+  // Project totals (column sums) + grand total — shared by both layouts.
+  // We surface the backend-computed `manHours` directly so the footer always
+  // matches sum-of-cells exactly (no float drift, no rounding cascade).
+  const projectTotals = projects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    color: p.color,
+    total: p.manHours,
+  }));
+  const grandTotal = grandManHours;
+
+  // Sort people by total hours desc so top contributors land at top
+  const sortedPeople = [...people].sort((a, b) => b.totalHours - a.totalHours);
+
+  // Sort projects desc by total for the mobile summary card (most-worked first)
+  const sortedProjectTotals = [...projectTotals].sort((a, b) => b.total - a.total);
+
+  const fmt = (n: number) => (n === 0 ? "—" : n.toFixed(1));
+
+  return (
+    <section className="glass rounded-[2rem] p-6 md:p-8">
+      <div className="flex items-baseline justify-between mb-4 md:mb-6">
+        <h3 className="font-display font-semibold text-lg">Team × Project Matrix</h3>
+        <span
+          className="text-[10px] font-mono uppercase text-foreground/40"
+          title="Cells & totals show full task duration per person. Tasks shared by N people contribute their full hours to each."
+        >
+          {people.length}m · {projects.length}p · man-hours
+        </span>
+      </div>
+
+      {/* MOBILE & TABLET (<lg): card stack — no horizontal scroll */}
+      <div className="lg:hidden space-y-3">
+        {/* Grand summary card (project totals + grand total) — surfaces footer data up top */}
+        <div className="glass-tile rounded-2xl p-4">
+          <div className="flex items-baseline justify-between mb-3">
+            <span className="text-[10px] font-mono uppercase tracking-wider text-foreground/40">
+              Man-hours per project
+            </span>
+            <span className="font-mono tabular-nums font-extrabold text-foreground text-lg">
+              {grandTotal.toFixed(1)}h
+            </span>
+          </div>
+          <ul className="grid grid-cols-2 gap-x-3 gap-y-1.5">
+            {sortedProjectTotals.map((p) => (
+              <li key={p.id} className="flex items-center justify-between gap-2 min-w-0">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="size-1.5 rounded-full shrink-0"
+                    style={{ backgroundColor: resolveColor(p.color) }}
+                  />
+                  <span className="text-xs text-foreground/70 truncate">{p.name}</span>
+                </div>
+                <span className="font-mono tabular-nums text-xs text-foreground/85 shrink-0">
+                  {p.total === 0 ? "—" : p.total.toFixed(1)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Per-member cards */}
+        {sortedPeople.map((person) => {
+          const entries = projects
+            .map((p) => ({ id: p.id, name: p.name, color: p.color, hours: person.byProject[p.name] ?? 0 }))
+            .filter((e) => e.hours > 0)
+            .sort((a, b) => b.hours - a.hours);
+          const maxH = entries[0]?.hours ?? 1;
+          return (
+            <div key={person.name} className="glass-tile rounded-2xl p-4">
+              <div className="flex items-baseline justify-between gap-3 mb-3">
+                <span className="font-semibold text-foreground/90 truncate min-w-0">
+                  {person.name}
+                </span>
+                <span className="font-mono tabular-nums font-bold text-foreground shrink-0">
+                  {person.totalHours.toFixed(1)}h
+                </span>
+              </div>
+              {entries.length === 0 ? (
+                <p className="text-xs text-foreground/40">No hours this week.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {entries.map((e) => {
+                    const pct = (e.hours / maxH) * 100;
+                    return (
+                      <li key={e.id}>
+                        <div className="flex items-center justify-between gap-2 mb-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span
+                              className="size-1.5 rounded-full shrink-0"
+                              style={{ backgroundColor: resolveColor(e.color) }}
+                            />
+                            <span className="text-xs text-foreground/75 truncate">{e.name}</span>
+                          </div>
+                          <span className="font-mono tabular-nums text-xs text-foreground/85 shrink-0">
+                            {e.hours.toFixed(1)}
+                          </span>
+                        </div>
+                        <div className="h-1 rounded-full bg-foreground/[0.04] overflow-hidden">
+                          <div
+                            className="h-full rounded-full"
+                            style={{
+                              width: `${pct}%`,
+                              backgroundColor: resolveColor(e.color),
+                              opacity: 0.6,
+                            }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* DESKTOP (≥lg): full matrix table */}
+      <div className="hidden lg:block -mx-8 overflow-x-auto">
+        <div className="px-8 min-w-fit">
+          <table className="w-full border-collapse text-sm">
+            <thead>
+              <tr className="border-b border-white/10">
+                <th className="sticky left-0 bg-background/40 backdrop-blur-sm text-left py-3 pr-4 text-[10px] font-mono uppercase tracking-wider text-foreground/40 font-normal z-10">
+                  Team
+                </th>
+                {projects.map((p) => (
+                  <th
+                    key={p.id}
+                    className="text-right px-3 py-3 text-[10px] font-mono uppercase tracking-wider text-foreground/40 font-normal whitespace-nowrap"
+                    title={p.name}
+                  >
+                    <div className="flex items-center justify-end gap-2">
+                      <span
+                        className="size-1.5 rounded-full shrink-0"
+                        style={{ backgroundColor: resolveColor(p.color) }}
+                      />
+                      <span className="truncate max-w-[140px]">{p.name}</span>
+                    </div>
+                  </th>
+                ))}
+                <th className="text-right pl-4 py-3 text-[10px] font-mono uppercase tracking-wider text-foreground/60 font-semibold whitespace-nowrap border-l border-white/10">
+                  Total
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedPeople.map((person, idx) => (
+                <tr
+                  key={person.name}
+                  className={`border-b border-white/5 hover:bg-white/[0.03] transition-colors ${
+                    idx % 2 === 1 ? "bg-white/[0.015]" : ""
+                  }`}
+                >
+                  <td className="sticky left-0 bg-background/40 backdrop-blur-sm py-3 pr-4 text-foreground/85 font-medium truncate max-w-[160px] z-10">
+                    {person.name}
+                  </td>
+                  {projects.map((p) => {
+                    const h = person.byProject[p.name] ?? 0;
+                    return (
+                      <td
+                        key={p.id}
+                        className={`text-right px-3 py-3 font-mono tabular-nums whitespace-nowrap ${
+                          h === 0 ? "text-foreground/25" : "text-foreground/85"
+                        }`}
+                      >
+                        {fmt(h)}
+                      </td>
+                    );
+                  })}
+                  <td className="text-right pl-4 py-3 font-mono tabular-nums font-bold text-foreground whitespace-nowrap border-l border-white/10">
+                    {person.totalHours.toFixed(1)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-white/15 bg-white/[0.04]">
+                <td className="sticky left-0 bg-background/60 backdrop-blur-sm py-3 pr-4 text-[10px] font-mono uppercase tracking-wider text-foreground/60 font-semibold z-10">
+                  Total
+                </td>
+                {projectTotals.map((p) => (
+                  <td
+                    key={p.id}
+                    className="text-right px-3 py-3 font-mono tabular-nums font-bold text-foreground/90 whitespace-nowrap"
+                  >
+                    {p.total === 0 ? "—" : p.total.toFixed(1)}
+                  </td>
+                ))}
+                <td className="text-right pl-4 py-3 font-mono tabular-nums font-extrabold text-foreground whitespace-nowrap border-l border-white/10">
+                  {grandTotal.toFixed(1)}
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
   );
 }
