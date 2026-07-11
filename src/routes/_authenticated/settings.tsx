@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import {
   listProjects,
   addProject,
+  addUnassignedProject,
   removeProject,
   searchNotionDatabases,
   searchNotionTree,
@@ -182,6 +183,18 @@ function SettingsPage() {
       qc.invalidateQueries({ queryKey: ["weekly"] });
     },
     onError: (e: Error) => setError(e.message),
+  });
+
+  const addUnassignedFn = useServerFn(addUnassignedProject);
+  const [unassignedErr, setUnassignedErr] = useState<string | null>(null);
+  const addUnassigned = useMutation({
+    mutationFn: () => addUnassignedFn({ data: {} }),
+    onSuccess: () => {
+      setUnassignedErr(null);
+      qc.invalidateQueries({ queryKey: ["projects"] });
+      qc.invalidateQueries({ queryKey: ["weekly"] });
+    },
+    onError: (e: Error) => setUnassignedErr(e.message),
   });
 
   const inspectTaskDbFn = useServerFn(inspectTaskDatabase);
@@ -501,24 +514,44 @@ function SettingsPage() {
       </section>
 
       <section className="glass rounded-[2rem] p-6 mb-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <h2 className="font-display font-bold text-lg">Add Project</h2>
-          {relSrc.data?.configured ? (
-            <button
-              onClick={() => {
-                setAddOpen(true);
-                setPickedPage(null);
-                setOverrideName("");
-                setPageSearch("");
-              }}
-              className="px-4 py-2 bg-foreground text-background rounded-xl text-sm font-bold"
-            >
-              + Add Project (dari Relation)
-            </button>
-          ) : (
-            <span className="text-xs text-foreground/50">Configure source dulu di atas</span>
-          )}
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            {relSrc.data?.configured && (
+              <button
+                disabled={
+                  addUnassigned.isPending ||
+                  trackedProjects.some((p) => p.source_kind === "unassigned")
+                }
+                onClick={() => addUnassigned.mutate()}
+                title={
+                  trackedProjects.some((p) => p.source_kind === "unassigned")
+                    ? "Sudah ada"
+                    : "Track task tanpa relation project (Tasking, Reviewing, Komunikasi Client, dll)"
+                }
+                className="px-4 py-2 border border-white/10 rounded-xl text-sm font-bold hover:bg-white/5 disabled:opacity-50"
+              >
+                {addUnassigned.isPending ? "…" : "+ Non-Project Activities"}
+              </button>
+            )}
+            {relSrc.data?.configured ? (
+              <button
+                onClick={() => {
+                  setAddOpen(true);
+                  setPickedPage(null);
+                  setOverrideName("");
+                  setPageSearch("");
+                }}
+                className="px-4 py-2 bg-foreground text-background rounded-xl text-sm font-bold"
+              >
+                + Add Project (dari Relation)
+              </button>
+            ) : (
+              <span className="text-xs text-foreground/50">Configure source dulu di atas</span>
+            )}
+          </div>
         </div>
+        {unassignedErr && <p className="text-xs text-foreground/60 mb-3">{unassignedErr}</p>}
         <details>
           <summary className="text-xs text-foreground/60 cursor-pointer hover:text-foreground">Advanced: paste URL database/page manual</summary>
           <p className="text-[11px] text-foreground/50 mt-2 mb-3">Untuk database mode (1 DB = 1 project) atau jika belum konfigurasi source.</p>
@@ -649,12 +682,16 @@ function SettingsPage() {
                     <p className="font-medium flex items-center gap-2">
                       {p.name}
                       <span className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 bg-foreground/10 rounded">
-                        {p.source_kind === "relation" ? "relation" : "database"}
+                        {p.source_kind === "relation" ? "relation" : p.source_kind === "unassigned" ? "no relation" : "database"}
                       </span>
                     </p>
                     {p.source_kind === "relation" ? (
                       <p className="text-xs font-mono text-foreground/40">
                         task DB {String(p.task_database_id).slice(0, 8)}… · {p.relation_property} → page {String(p.relation_page_id).slice(0, 8)}…
+                      </p>
+                    ) : p.source_kind === "unassigned" ? (
+                      <p className="text-xs font-mono text-foreground/40">
+                        task DB {String(p.task_database_id).slice(0, 8)}… · {p.relation_property} kosong
                       </p>
                     ) : (
                       <p className="text-xs font-mono text-foreground/40">{p.notion_database_id}</p>

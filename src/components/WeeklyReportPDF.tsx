@@ -165,7 +165,60 @@ const styles = StyleSheet.create({
   personBarFill: { height: 5, backgroundColor: "#333", borderRadius: 2 },
   personHrs: { fontSize: 8, width: "16%", textAlign: "right", color: "#444", fontFamily: "Helvetica-Bold" },
   personTasks: { fontSize: 7, width: "16%", textAlign: "right", color: "#999" },
+
+  // Project summary cards (overview page)
+  projSummaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 },
+  projSummaryCard: {
+    width: "48.5%",
+    border: "1pt solid #ddd",
+    borderRadius: 4,
+    padding: 8,
+  },
+  projSummaryHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" },
+  projSummaryDot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 5, marginTop: 3 },
+  projSummaryName: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#111", flexShrink: 1 },
+  projSummaryTotal: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#111" },
+  projSummaryTotalSub: { fontSize: 6, color: "#888", textTransform: "uppercase", letterSpacing: 0.5 },
+  projSummaryMeta: { fontSize: 7, color: "#666", marginTop: 4 },
+  projSummaryTrack: {
+    fontSize: 6,
+    fontFamily: "Helvetica-Bold",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
+    borderRadius: 3,
+    marginTop: 4,
+    alignSelf: "flex-start",
+  },
+
+  // Project × Team matrix
+  matrixCard: { border: "1pt solid #ddd", padding: 10, borderRadius: 4, marginBottom: 12 },
+  matrixHead: { flexDirection: "row", borderBottom: "1pt solid #222", paddingBottom: 3, marginBottom: 3 },
+  matrixRow: { flexDirection: "row", paddingVertical: 3, borderBottom: "0.5pt solid #eee" },
+  matrixTotalRow: { flexDirection: "row", paddingVertical: 4, borderTop: "1pt solid #222", marginTop: 2 },
+  matrixTh: { fontSize: 6.5, fontFamily: "Helvetica-Bold", color: "#222", textTransform: "uppercase", letterSpacing: 0.4 },
+  matrixTd: { fontSize: 7.5, color: "#222" },
+  matrixTdBold: { fontSize: 7.5, color: "#000", fontFamily: "Helvetica-Bold" },
+  cellRight: { textAlign: "right" },
 });
+
+// Color resolver — matches the project recap UI (Notion color names → hex).
+const PROJECT_COLOR_MAP: Record<string, string> = {
+  purple: "#a855f7",
+  blue: "#3b82f6",
+  green: "#10b981",
+  orange: "#f97316",
+  pink: "#ec4899",
+  red: "#ef4444",
+  yellow: "#eab308",
+  cyan: "#06b6d4",
+};
+function resolveProjectColor(c: string | null | undefined): string {
+  if (!c) return "#7c3aed";
+  if (c.startsWith("#")) return c;
+  return PROJECT_COLOR_MAP[c] ?? "#7c3aed";
+}
 
 function fmtDateRange(start: string, end: string) {
   const s = new Date(start);
@@ -209,6 +262,119 @@ function statusLabel(t: ProjectWeekly["tasks"][number]) {
   return t.status || "—";
 }
 
+function ProjectSummaryCards({ projects }: { projects: ProjectWeekly[] }) {
+  if (!projects.length) return null;
+  const sorted = [...projects].sort((a, b) => b.totalHours - a.totalHours);
+  return (
+    <View style={styles.matrixCard} wrap={false}>
+      <Text style={styles.sectionTitle}>Project Summary</Text>
+      <View style={styles.projSummaryGrid}>
+        {sorted.map((p) => {
+          const color = resolveProjectColor(p.color);
+          const target = p.targetHoursPerWeek;
+          let trackLabel: string | null = null;
+          let trackBg = "#e5e5e5";
+          let trackColor = "#666";
+          if (target != null && target > 0) {
+            const pct = (p.totalHours / target) * 100;
+            if (p.totalHours >= target) { trackLabel = "Target met"; trackBg = "#222"; trackColor = "#fff"; }
+            else if (pct >= 75) { trackLabel = "On track"; trackBg = "#555"; trackColor = "#fff"; }
+            else if (pct >= 40) { trackLabel = "Behind"; trackBg = "#999"; trackColor = "#fff"; }
+            else { trackLabel = "Far behind"; trackBg = "#ccc"; trackColor = "#333"; }
+          }
+          return (
+            <View key={p.projectId} style={styles.projSummaryCard}>
+              <View style={styles.projSummaryHead}>
+                <View style={{ flexDirection: "row", alignItems: "flex-start", flexShrink: 1, paddingRight: 4 }}>
+                  <View style={[styles.projSummaryDot, { backgroundColor: color }]} />
+                  <Text style={styles.projSummaryName} numberOfLines={1}>{p.name}</Text>
+                </View>
+                <View style={{ alignItems: "flex-end" }}>
+                  <Text style={styles.projSummaryTotal}>{p.totalHours.toFixed(1)}h</Text>
+                  <Text style={styles.projSummaryTotalSub}>wall-clock</Text>
+                </View>
+              </View>
+              <Text style={styles.projSummaryMeta}>
+                {p.tasksDone + p.tasksInProgress + p.tasksBlocked} tasks · {p.tasksDone} done · {p.tasksInProgress} prog · {p.tasksBlocked} blocked
+              </Text>
+              {trackLabel ? (
+                <Text style={[styles.projSummaryTrack, { backgroundColor: trackBg, color: trackColor }]}>
+                  {trackLabel}
+                </Text>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+}
+
+function ProjectTeamMatrix({ agg }: { agg: WeeklyAggregate }) {
+  const people = agg.perPerson;
+  const projects = agg.projects;
+  if (!people.length || !projects.length) return null;
+
+  const leftW = 26;
+  const totalW = 12;
+  const colW = (100 - leftW - totalW) / projects.length;
+
+  const rows = people.map((person) => {
+    const byProject: Record<string, number> = {};
+    for (const p of projects) {
+      byProject[p.name] = person.byProject[p.name] ?? 0;
+    }
+    return { name: person.name, byProject, total: person.totalHours };
+  });
+  const projectTotals = projects.map((p) => p.manHours);
+  const grandTotal = projectTotals.reduce((a, b) => a + b, 0);
+
+  return (
+    <View style={styles.matrixCard} wrap={false}>
+      <Text style={styles.sectionTitle}>Team × Project</Text>
+      <Text style={{ fontSize: 7, color: "#666", marginBottom: 6 }}>
+        Man-hours per person, per project, this week.
+      </Text>
+      <View style={styles.matrixHead}>
+        <Text style={[styles.matrixTh, { width: `${leftW}%` }]}>Person</Text>
+        {projects.map((p) => (
+          <Text key={p.projectId} style={[styles.matrixTh, styles.cellRight, { width: `${colW}%` }]} numberOfLines={1}>
+            {p.name}
+          </Text>
+        ))}
+        <Text style={[styles.matrixTh, styles.cellRight, { width: `${totalW}%` }]}>Total</Text>
+      </View>
+      {rows.map((r) => (
+        <View key={r.name} style={styles.matrixRow}>
+          <Text style={[styles.matrixTd, { width: `${leftW}%` }]}>{r.name}</Text>
+          {projects.map((p) => {
+            const v = r.byProject[p.name] ?? 0;
+            return (
+              <Text key={p.projectId} style={[styles.matrixTd, styles.cellRight, { width: `${colW}%` }]}>
+                {v > 0 ? v.toFixed(1) : "—"}
+              </Text>
+            );
+          })}
+          <Text style={[styles.matrixTdBold, styles.cellRight, { width: `${totalW}%` }]}>
+            {r.total.toFixed(1)}
+          </Text>
+        </View>
+      ))}
+      <View style={styles.matrixTotalRow}>
+        <Text style={[styles.matrixTdBold, { width: `${leftW}%` }]}>TOTAL</Text>
+        {projectTotals.map((t, i) => (
+          <Text key={projects[i].projectId} style={[styles.matrixTdBold, styles.cellRight, { width: `${colW}%` }]}>
+            {t.toFixed(1)}
+          </Text>
+        ))}
+        <Text style={[styles.matrixTdBold, styles.cellRight, { width: `${totalW}%` }]}>
+          {grandTotal.toFixed(1)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function ProjectPage({ project, weekStart, weekEnd, generatedAt }: {
   project: ProjectWeekly;
   weekStart: string;
@@ -248,6 +414,29 @@ function ProjectPage({ project, weekStart, weekEnd, generatedAt }: {
     .map((p) => ({ ...p, hours: Number(p.hours.toFixed(2)) }))
     .sort((a, b) => b.hours - a.hours);
   const maxPersonHours = Math.max(1, ...people.map((p) => p.hours));
+
+  // Non-Project Activities (source_kind = "unassigned") has no project relation
+  // — Role/Context breakdown replaces "Hours by Person" as the primary lens
+  // (mirrors web team-detail view). Context is multi-select so % can sum >100%.
+  const isUnassigned = project.sourceKind === "unassigned";
+  const roleHours = new Map<string, number>();
+  const contextHours = new Map<string, number>();
+  if (isUnassigned) {
+    for (const t of project.tasks) {
+      const dur = Number(t.duration ?? 0);
+      if (dur <= 0) continue;
+      const role = t.role?.trim() || "Unspecified";
+      roleHours.set(role, (roleHours.get(role) ?? 0) + dur);
+      const contexts = t.context?.length ? t.context : ["Unspecified"];
+      for (const c of contexts) contextHours.set(c, (contextHours.get(c) ?? 0) + dur);
+    }
+  }
+  const byRole = [...roleHours.entries()]
+    .map(([label, hours]) => ({ label, hours, pct: project.totalHours ? (hours / project.totalHours) * 100 : 0 }))
+    .sort((a, b) => b.hours - a.hours);
+  const byContext = [...contextHours.entries()]
+    .map(([label, hours]) => ({ label, hours, pct: project.totalHours ? (hours / project.totalHours) * 100 : 0 }))
+    .sort((a, b) => b.hours - a.hours);
 
   // Highlights
   const totalTasks = project.tasks.length;
@@ -343,6 +532,38 @@ function ProjectPage({ project, weekStart, weekEnd, generatedAt }: {
           <Text style={styles.kpiValue}>{project.tasksBlocked}</Text>
         </View>
       </View>
+
+      {/* Role / Context breakdown — Non-Project Activities only */}
+      {isUnassigned && (byRole.length > 0 || byContext.length > 0) && (
+        <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+          <View style={{ flex: 1, border: "1pt solid #ddd", borderRadius: 4, padding: 10 }}>
+            <Text style={styles.sectionTitle}>By Role</Text>
+            {byRole.map((r) => (
+              <View key={r.label} style={styles.personRow}>
+                <Text style={styles.personName} numberOfLines={1}>{r.label}</Text>
+                <View style={styles.personBarTrack}>
+                  <View style={[styles.personBarFill, { width: `${Math.min(100, r.pct).toFixed(1)}%` as any }]} />
+                </View>
+                <Text style={styles.personHrs}>{r.hours.toFixed(1)}h</Text>
+                <Text style={styles.personTasks}>{r.pct.toFixed(0)}%</Text>
+              </View>
+            ))}
+          </View>
+          <View style={{ flex: 1, border: "1pt solid #ddd", borderRadius: 4, padding: 10 }}>
+            <Text style={styles.sectionTitle}>By Context</Text>
+            {byContext.map((c) => (
+              <View key={c.label} style={styles.personRow}>
+                <Text style={styles.personName} numberOfLines={1}>{c.label}</Text>
+                <View style={styles.personBarTrack}>
+                  <View style={[styles.personBarFill, { width: `${Math.min(100, c.pct).toFixed(1)}%` as any }]} />
+                </View>
+                <Text style={styles.personHrs}>{c.hours.toFixed(1)}h</Text>
+                <Text style={styles.personTasks}>{c.pct.toFixed(0)}%</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Hours by person + Highlights side by side */}
       <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
@@ -453,6 +674,8 @@ function OverviewPage({ agg, generatedAt }: { agg: WeeklyAggregate; generatedAt:
         </View>
       </View>
 
+      <ProjectSummaryCards projects={agg.projects} />
+
       <Text style={styles.sectionTitle}>Projects</Text>
       <View style={styles.tableHead}>
         <Text style={[styles.th, { width: "40%" }]}>Project</Text>
@@ -487,6 +710,16 @@ function OverviewPage({ agg, generatedAt }: { agg: WeeklyAggregate; generatedAt:
         </View>
       ))}
 
+      <Footer />
+    </Page>
+  );
+}
+
+function MatrixPage({ agg, generatedAt }: { agg: WeeklyAggregate; generatedAt: string }) {
+  return (
+    <Page size="A4" orientation="landscape" style={styles.page}>
+      <Header subtitle="Team × Project" weekStart={agg.weekStart} weekEnd={agg.weekEnd} generatedAt={generatedAt} />
+      <ProjectTeamMatrix agg={agg} />
       <Footer />
     </Page>
   );
@@ -643,6 +876,7 @@ export function WeeklyReportDocument({ scope }: { scope: ReportScope }) {
   return (
     <Document>
       <OverviewPage agg={agg} generatedAt={generatedAt} />
+      <MatrixPage agg={agg} generatedAt={generatedAt} />
       {agg.projects.map((p) => (
         <ProjectPage key={p.projectId} project={p} weekStart={agg.weekStart} weekEnd={agg.weekEnd} generatedAt={generatedAt} />
       ))}

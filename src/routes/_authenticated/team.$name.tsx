@@ -100,6 +100,28 @@ function PersonDetailContent() {
 
   const maxProjectHours = Math.max(...Object.values(person.byProject), 0.001);
 
+  // Role/Context breakdown — derived live from task Role (select) / Context
+  // (multi-select) Notion properties, no hardcoded list (values auto-follow
+  // whatever options exist in Notion).
+  const roleHours = new Map<string, number>();
+  const contextHours = new Map<string, number>();
+  for (const t of person.tasks) {
+    const dur = Number(t.duration ?? 0);
+    if (dur <= 0) continue;
+    const role = t.role?.trim() || "Unspecified";
+    roleHours.set(role, (roleHours.get(role) ?? 0) + dur);
+    const contexts = t.context?.length ? t.context : ["Unspecified"];
+    for (const c of contexts) {
+      contextHours.set(c, (contextHours.get(c) ?? 0) + dur);
+    }
+  }
+  const byRole = [...roleHours.entries()]
+    .map(([label, hours]) => ({ label, hours, percent: person.totalHours ? (hours / person.totalHours) * 100 : 0 }))
+    .sort((a, b) => b.hours - a.hours);
+  const byContext = [...contextHours.entries()]
+    .map(([label, hours]) => ({ label, hours, percent: person.totalHours ? (hours / person.totalHours) * 100 : 0 }))
+    .sort((a, b) => b.hours - a.hours);
+
   // Group tasks by project for readability
   const tasksByProject = person.tasks.reduce<Record<string, typeof person.tasks>>((acc, t) => {
     (acc[t.projectName] = acc[t.projectName] ?? []).push(t);
@@ -230,6 +252,55 @@ function PersonDetailContent() {
           </ul>
         </section>
       </div>
+
+      {(byRole.length > 0 || byContext.length > 0) && (
+        <div className="grid lg:grid-cols-2 gap-6 mb-8">
+          <section className="glass rounded-[1.5rem] p-6">
+            <h3 className="text-[10px] font-mono uppercase text-foreground/40 mb-5">By Role</h3>
+            <ul className="space-y-4">
+              {byRole.map((r) => (
+                <li key={r.label}>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className="text-sm text-foreground/85 truncate">{r.label}</span>
+                    <span className="flex items-baseline gap-2 shrink-0">
+                      <span className="font-mono text-sm tabular-nums text-foreground">{r.hours.toFixed(1)}h</span>
+                      <span className="text-[10px] font-mono text-foreground/40 tabular-nums">{r.percent.toFixed(0)}%</span>
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-foreground/[0.06] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-foreground/40 to-foreground/80 transition-all"
+                      style={{ width: `${r.percent}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="glass rounded-[1.5rem] p-6">
+            <h3 className="text-[10px] font-mono uppercase text-foreground/40 mb-5">By Context</h3>
+            <ul className="space-y-4">
+              {byContext.map((c) => (
+                <li key={c.label}>
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <span className="text-sm text-foreground/85 truncate">{c.label}</span>
+                    <span className="flex items-baseline gap-2 shrink-0">
+                      <span className="font-mono text-sm tabular-nums text-foreground">{c.hours.toFixed(1)}h</span>
+                      <span className="text-[10px] font-mono text-foreground/40 tabular-nums">{c.percent.toFixed(0)}%</span>
+                    </span>
+                  </div>
+                  <div className="h-2 rounded-full bg-foreground/[0.06] overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-foreground/40 to-foreground/80 transition-all"
+                      style={{ width: `${c.percent}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      )}
 
       {/* Tasks grouped by project */}
       <section className="space-y-6">

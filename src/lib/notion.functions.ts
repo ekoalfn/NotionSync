@@ -6,6 +6,8 @@ export interface ProjectWeekly {
   notionDatabaseId: string;
   name: string;
   color: string;
+  /** "unassigned" = Non-Project Activities bucket (no project relation). Drives Role/Context breakdown in reports. */
+  sourceKind?: string;
   targetHoursPerWeek: number | null;
   error?: string | null;
   /** Wall-clock hours: sum of unique task durations (each task counted once). */
@@ -28,6 +30,8 @@ export interface ProjectWeekly {
     priority: string;
     module: string;
     blocked: boolean;
+    role: string;
+    context: string[];
     raw: Record<string, string>;
   }>;
 }
@@ -62,6 +66,8 @@ export interface WeeklyAggregate {
       blocked: boolean;
       projectName: string;
       projectColor: string;
+      role: string;
+      context: string[];
     }>;
   }>;
 }
@@ -101,6 +107,46 @@ export const listProjects = createServerFn({ method: "GET" }).handler(async () =
     relation_page_id: (r as any).relation_page_id ?? null,
   }));
 });
+
+export const addUnassignedProject = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      name: z.string().min(1).max(120).default("Non-Project Activities"),
+      color: z.string().min(2).max(32).default("cyan"),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: cfg } = await supabaseAdmin
+      .from("app_settings")
+      .select("value")
+      .eq("key", "relation_source")
+      .maybeSingle();
+    if (!cfg?.value) throw new Error("Daily Project source belum dikonfigurasi.");
+    const parsed = JSON.parse(cfg.value);
+    const taskDbId: string = parsed.task_database_id;
+    const relProp: string = parsed.relation_property;
+    if (!taskDbId || !relProp) throw new Error("Daily Project source tidak lengkap.");
+
+    const { data: existing } = await supabaseAdmin
+      .from("notion_projects")
+      .select("id")
+      .eq("source_kind", "unassigned")
+      .maybeSingle();
+    if (existing) throw new Error("Non-Project Activities sudah ada.");
+
+    const { error } = await supabaseAdmin.from("notion_projects").insert({
+      notion_database_id: taskDbId,
+      name: data.name,
+      color: data.color,
+      source_kind: "unassigned",
+      task_database_id: taskDbId,
+      relation_property: relProp,
+      relation_page_id: null,
+    });
+    if (error) throw error;
+    return { ok: true };
+  });
 
 export const addProject = createServerFn({ method: "POST" })
   .inputValidator(
@@ -494,7 +540,7 @@ export const getWeeklyAggregate = createServerFn({ method: "POST" })
   .inputValidator(z.object({ weekStart: z.string().optional() }))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { queryDatabase, queryDatabaseByRelation } = await import("./notion.server");
+    const { queryDatabase, queryDatabaseByRelation, queryDatabaseUnassigned } = await import("./notion.server");
     const range = getWeekRange(data.weekStart);
 
     const { data: projects, error } = await supabaseAdmin
@@ -533,6 +579,8 @@ export const getWeeklyAggregate = createServerFn({ method: "POST" })
         blocked: boolean;
         projectName: string;
         projectColor: string;
+        role: string;
+        context: string[];
       }>;
     }>();
 
@@ -541,7 +589,12 @@ export const getWeeklyAggregate = createServerFn({ method: "POST" })
       let queryError: string | null = null;
       try {
         const sk = (proj as any).source_kind ?? "database";
-        if (sk === "relation" && (proj as any).task_database_id && (proj as any).relation_property && (proj as any).relation_page_id) {
+        if (sk === "unassigned" && (proj as any).task_database_id && (proj as any).relation_property) {
+          tasks = await queryDatabaseUnassigned(
+            (proj as any).task_database_id,
+            (proj as any).relation_property,
+          );
+        } else if (sk === "relation" && (proj as any).task_database_id && (proj as any).relation_property && (proj as any).relation_page_id) {
           tasks = await queryDatabaseByRelation(
             (proj as any).task_database_id,
             (proj as any).relation_property,
@@ -603,6 +656,8 @@ export const getWeeklyAggregate = createServerFn({ method: "POST" })
             blocked: t.blocked,
             projectName: proj.name,
             projectColor: proj.color,
+            role: t.role ?? "",
+            context: t.context ?? [],
           });
         }
       }
@@ -612,6 +667,7 @@ export const getWeeklyAggregate = createServerFn({ method: "POST" })
         notionDatabaseId: proj.notion_database_id,
         name: proj.name,
         color: proj.color,
+        sourceKind: (proj as any).source_kind ?? "database",
         targetHoursPerWeek: (proj as any).target_hours_per_week ?? null,
         error: queryError,
         totalHours: Number(projHours.toFixed(2)),
@@ -632,6 +688,8 @@ export const getWeeklyAggregate = createServerFn({ method: "POST" })
           priority: t.priority ?? "",
           module: t.module ?? "",
           blocked: t.blocked,
+          role: t.role ?? "",
+          context: t.context ?? [],
           raw: t.raw ?? {},
         })),
       });
@@ -699,7 +757,7 @@ export const getAllTasks = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { queryDatabase, queryDatabaseByRelation } = await import("./notion.server");
+    const { queryDatabase, queryDatabaseByRelation, queryDatabaseUnassigned } = await import("./notion.server");
 
     const taskCap = data.taskCap ?? 1500;
 
@@ -723,6 +781,8 @@ export const getAllTasks = createServerFn({ method: "POST" })
       module: string;
       blocked: boolean;
       project: string;
+      role: string;
+      context: string[];
       properties: Record<string, string>;
     };
 
@@ -739,7 +799,12 @@ export const getAllTasks = createServerFn({ method: "POST" })
       let queryError: string | null = null;
       try {
         const sk = (proj as any).source_kind ?? "database";
-        if (
+        if (sk === "unassigned" && (proj as any).task_database_id && (proj as any).relation_property) {
+          tasks = await queryDatabaseUnassigned(
+            (proj as any).task_database_id,
+            (proj as any).relation_property,
+          );
+        } else if (
           sk === "relation" &&
           (proj as any).task_database_id &&
           (proj as any).relation_property &&
@@ -779,6 +844,8 @@ export const getAllTasks = createServerFn({ method: "POST" })
           module: t.module ?? "",
           blocked: !!t.blocked,
           project: proj.name,
+          role: t.role ?? "",
+          context: t.context ?? [],
           properties: t.raw ?? {},
         });
       }
@@ -842,7 +909,7 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { queryDatabase, queryDatabaseByRelation } = await import("./notion.server");
+    const { queryDatabase, queryDatabaseByRelation, queryDatabaseUnassigned } = await import("./notion.server");
 
     // Resolve date range — default to current calendar month if missing.
     const now = new Date();
@@ -869,7 +936,12 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
       try {
         const sk = (proj as any).source_kind ?? "database";
         let tasks: any[] = [];
-        if (
+        if (sk === "unassigned" && (proj as any).task_database_id && (proj as any).relation_property) {
+          tasks = await queryDatabaseUnassigned(
+            (proj as any).task_database_id,
+            (proj as any).relation_property,
+          );
+        } else if (
           sk === "relation" &&
           (proj as any).task_database_id &&
           (proj as any).relation_property &&
@@ -898,6 +970,7 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
       projects: Array<{
         name: string;
         color: string | null;
+        sourceKind?: string;
         byWeek: Record<string, number>;
         total: number;
       }>;
@@ -915,6 +988,9 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
           tasksInProgress: number;
           tasksBlocked: number;
           tasksTotal: number;
+          /** Role/Context hour split (data-driven, no hardcoded list). Used for Non-Project Activities pages. */
+          byRole: Array<{ label: string; hours: number }>;
+          byContext: Array<{ label: string; hours: number }>;
         }
       >;
       weekTotals: Array<{ key: string; wallClock: number; manHours: number; tasks: number }>;
@@ -947,11 +1023,14 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
 
       const personMatrix = new Map<string, Map<string, number>>();
       const projectMatrix = new Map<string, Map<string, number>>();
-      const projectMeta = new Map<string, { name: string; color: string | null }>();
+      const projectMeta = new Map<string, { name: string; color: string | null; sourceKind: string }>();
       // Per-project per-person matrix → projectName → person → weekKey → hours
       const projectPersonMatrix = new Map<string, Map<string, Map<string, number>>>();
       // Per-project status counters
       const projectStatus = new Map<string, { done: number; prog: number; blocked: number; total: number }>();
+      // Per-project role/context hour maps (data-driven, no hardcoded list).
+      const projectRoleHours = new Map<string, Map<string, number>>();
+      const projectContextHours = new Map<string, Map<string, number>>();
       const weekTotals = new Map<string, { wallClock: number; manHours: number; tasks: number }>();
       weeks.forEach((w) => weekTotals.set(w.key, { wallClock: 0, manHours: 0, tasks: 0 }));
       let grandWallClock = 0;
@@ -966,7 +1045,7 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
       };
 
       for (const proj of projects ?? []) {
-        projectMeta.set(proj.name, { name: proj.name, color: proj.color });
+        projectMeta.set(proj.name, { name: proj.name, color: proj.color, sourceKind: (proj as any).source_kind ?? "database" });
         const tasks = taskCache.get(proj.name) ?? [];
         for (const t of tasks) {
           if (!t.date) continue;
@@ -996,6 +1075,16 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
           if (t.blocked || stat.includes("blocked")) ps.blocked += 1;
           else if (stat.includes("done") || stat.includes("complete")) ps.done += 1;
           else if (stat.includes("progress") || stat.includes("doing") || stat.includes("review")) ps.prog += 1;
+
+          if (!projectRoleHours.has(proj.name)) projectRoleHours.set(proj.name, new Map());
+          const roleMap = projectRoleHours.get(proj.name)!;
+          const role = t.role?.trim() || "Unspecified";
+          roleMap.set(role, (roleMap.get(role) ?? 0) + dur);
+
+          if (!projectContextHours.has(proj.name)) projectContextHours.set(proj.name, new Map());
+          const contextMap = projectContextHours.get(proj.name)!;
+          const contexts = t.context?.length ? t.context : ["Unspecified"];
+          for (const c of contexts) contextMap.set(c, (contextMap.get(c) ?? 0) + dur);
 
           const assignees: string[] = t.assignees?.length ? t.assignees : ["Unassigned"];
           for (const person of assignees) {
@@ -1041,6 +1130,7 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
           return {
             name,
             color: meta?.color ?? null,
+            sourceKind: meta?.sourceKind ?? "database",
             byWeek,
             total: Number(total.toFixed(2)),
           };
@@ -1063,12 +1153,20 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
           })
           .sort((a, b) => b.total - a.total);
         const st = projectStatus.get(projName) ?? { done: 0, prog: 0, blocked: 0, total: 0 };
+        const byRole = [...(projectRoleHours.get(projName)?.entries() ?? [])]
+          .map(([label, hours]) => ({ label, hours: Number(hours.toFixed(2)) }))
+          .sort((a, b) => b.hours - a.hours);
+        const byContext = [...(projectContextHours.get(projName)?.entries() ?? [])]
+          .map(([label, hours]) => ({ label, hours: Number(hours.toFixed(2)) }))
+          .sort((a, b) => b.hours - a.hours);
         projectBreakdowns[projName] = {
           persons: personRowsForProj,
           tasksDone: st.done,
           tasksInProgress: st.prog,
           tasksBlocked: st.blocked,
           tasksTotal: st.total,
+          byRole,
+          byContext,
         };
       }
 
@@ -1122,4 +1220,92 @@ export const getMonthlyReport = createServerFn({ method: "POST" })
     }
 
     return { ...current, previous, normalHoursPerWeek };
+  });
+
+/**
+ * PM role/context split — groups task hours by "Role" (select, one bucket per
+ * task) and "Context" (multi-select, a task can count toward several context
+ * buckets so context percentages may sum >100%). Buckets are derived purely
+ * from whatever values exist in the data — no hardcoded list, so new
+ * Role/Context options added in Notion show up automatically.
+ *
+ * Scoped to a week (default current) and optionally a single person.
+ */
+export const getRoleContextBreakdown = createServerFn({ method: "POST" })
+  .inputValidator(
+    z.object({
+      weekStart: z.string().optional(),
+      personName: z.string().optional(),
+    }),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { queryDatabase, queryDatabaseByRelation, queryDatabaseUnassigned } = await import("./notion.server");
+    const range = getWeekRange(data.weekStart);
+
+    const { data: projects, error } = await supabaseAdmin
+      .from("notion_projects")
+      .select("id, notion_database_id, name, source_kind, task_database_id, relation_property, relation_page_id");
+    if (error) throw error;
+
+    const roleHours = new Map<string, number>();
+    const contextHours = new Map<string, number>();
+    let totalHours = 0;
+
+    for (const proj of projects ?? []) {
+      let tasks: any[] = [];
+      try {
+        const sk = (proj as any).source_kind ?? "database";
+        if (sk === "unassigned" && (proj as any).task_database_id && (proj as any).relation_property) {
+          tasks = await queryDatabaseUnassigned((proj as any).task_database_id, (proj as any).relation_property);
+        } else if (sk === "relation" && (proj as any).task_database_id && (proj as any).relation_property && (proj as any).relation_page_id) {
+          tasks = await queryDatabaseByRelation(
+            (proj as any).task_database_id,
+            (proj as any).relation_property,
+            (proj as any).relation_page_id,
+          );
+        } else {
+          tasks = await queryDatabase(proj.notion_database_id);
+        }
+      } catch (e) {
+        console.error(`[roleContext] Failed to query ${proj.name}:`, e);
+        continue;
+      }
+
+      for (const t of tasks) {
+        if (!t.date || t.date < range.start || t.date >= range.end) continue;
+        if (data.personName) {
+          const people: string[] = t.assignees?.length ? t.assignees : ["Unassigned"];
+          if (!people.includes(data.personName)) continue;
+        }
+        const dur = Number(t.duration ?? 0);
+        if (dur <= 0) continue;
+        totalHours += dur;
+
+        const role = t.role || "Unspecified";
+        roleHours.set(role, (roleHours.get(role) ?? 0) + dur);
+
+        const contexts: string[] = t.context?.length ? t.context : ["Unspecified"];
+        for (const ctx of contexts) {
+          contextHours.set(ctx, (contextHours.get(ctx) ?? 0) + dur);
+        }
+      }
+    }
+
+    const toBuckets = (m: Map<string, number>) =>
+      Array.from(m.entries())
+        .map(([label, hours]) => ({
+          label,
+          hours: Number(hours.toFixed(2)),
+          percent: totalHours > 0 ? Number(((hours / totalHours) * 100).toFixed(1)) : 0,
+        }))
+        .sort((a, b) => b.hours - a.hours);
+
+    return {
+      weekStart: range.start,
+      weekEnd: range.end,
+      totalHours: Number(totalHours.toFixed(2)),
+      byRole: toBuckets(roleHours),
+      byContext: toBuckets(contextHours),
+    };
   });

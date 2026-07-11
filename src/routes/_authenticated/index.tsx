@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Suspense, useState } from "react";
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { PageSkeleton } from "@/components/PageSkeleton";
 import { getWeeklyAggregate, getSyncState } from "@/lib/notion.functions";
@@ -76,10 +76,17 @@ function DashboardContent() {
     refetchInterval: 30000,
   });
 
+  const qc = useQueryClient();
   const ai = useQuery({
     queryKey: ["ai-insights", agg.weekStart],
     queryFn: () => fetchAI({ data: { weekStart: agg.weekStart } }),
     staleTime: 5 * 60 * 1000,
+  });
+  const regenerateAi = useMutation({
+    mutationFn: () => fetchAI({ data: { weekStart: agg.weekStart, force: true } }),
+    onSuccess: (result) => {
+      qc.setQueryData(["ai-insights", agg.weekStart], result);
+    },
   });
 
   const maxHours = Math.max(1, ...agg.perPerson.map((p) => p.totalHours));
@@ -285,10 +292,10 @@ function DashboardContent() {
                     <div className="size-2.5 bg-foreground/80 rounded-full animate-pulse" />
                     <span className="font-display font-semibold">AI Insight Engine</span>
                   </div>
-                  {ai.isFetching && <span className="text-[10px] font-mono opacity-60">thinking…</span>}
+                  {(ai.isFetching || regenerateAi.isPending) && <span className="text-[10px] font-mono opacity-60">thinking…</span>}
                 </div>
 
-                {ai.isLoading || !ai.data ? (
+                {!ai.data ? (
                   <p className="text-sm text-foreground/60">Generating insights…</p>
                 ) : ai.error ? (
                   <p className="text-sm text-foreground/60">{(ai.error as Error).message}</p>
@@ -301,8 +308,9 @@ function DashboardContent() {
                 )}
 
                 <button
-                  onClick={() => ai.refetch()}
-                  className="w-full mt-6 py-3 bg-white text-black rounded-2xl text-sm font-extrabold tracking-tight hover:scale-[0.98] transition-transform shadow-[0_4px_20px_oklch(1_0_0_/_0.2)]"
+                  onClick={() => regenerateAi.mutate()}
+                  disabled={regenerateAi.isPending}
+                  className="w-full mt-6 py-3 bg-white text-black rounded-2xl text-sm font-extrabold tracking-tight hover:scale-[0.98] transition-transform shadow-[0_4px_20px_oklch(1_0_0_/_0.2)] disabled:opacity-50"
                 >
                   Regenerate Insight
                 </button>

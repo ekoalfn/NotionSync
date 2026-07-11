@@ -995,6 +995,17 @@ function ProjectDetailPage({
   const persons = breakdown?.persons ?? [];
   const maxPerson = Math.max(1, ...persons.map((p) => p.total));
 
+  // Non-Project Activities (no relation) — Role/Context replaces person breakdown as primary lens.
+  const isUnassigned = project.sourceKind === "unassigned";
+  const byRole = (breakdown?.byRole ?? []).map((r) => ({
+    ...r,
+    pct: project.total ? (r.hours / project.total) * 100 : 0,
+  }));
+  const byContext = (breakdown?.byContext ?? []).map((c) => ({
+    ...c,
+    pct: project.total ? (c.hours / project.total) * 100 : 0,
+  }));
+
   // Build week totals series for line chart (project-scoped wall-clock).
   const chartWeekTotals = weeks.map((w) => ({
     key: w.key,
@@ -1104,6 +1115,38 @@ function ProjectDetailPage({
         </ChartCard>
       ) : null}
 
+      {/* Role / Context breakdown — Non-Project Activities only */}
+      {isUnassigned && (byRole.length > 0 || byContext.length > 0) ? (
+        <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
+          <View style={{ flex: 1, border: "1pt solid #ddd", borderRadius: 4, padding: 10 }}>
+            <Text style={s.sectionTitle}>By Role</Text>
+            {byRole.map((r) => (
+              <View key={r.label} style={s.personRow}>
+                <Text style={s.personName} numberOfLines={1}>{r.label}</Text>
+                <View style={s.personBarTrack}>
+                  <View style={[s.personBarFill, { width: `${Math.min(100, r.pct).toFixed(1)}%` as any, backgroundColor: color }]} />
+                </View>
+                <Text style={s.personHrs}>{r.hours.toFixed(1)}h</Text>
+                <Text style={s.personShare}>{r.pct.toFixed(0)}%</Text>
+              </View>
+            ))}
+          </View>
+          <View style={{ flex: 1, border: "1pt solid #ddd", borderRadius: 4, padding: 10 }}>
+            <Text style={s.sectionTitle}>By Context</Text>
+            {byContext.map((c) => (
+              <View key={c.label} style={s.personRow}>
+                <Text style={s.personName} numberOfLines={1}>{c.label}</Text>
+                <View style={s.personBarTrack}>
+                  <View style={[s.personBarFill, { width: `${Math.min(100, c.pct).toFixed(1)}%` as any, backgroundColor: color }]} />
+                </View>
+                <Text style={s.personHrs}>{c.hours.toFixed(1)}h</Text>
+                <Text style={s.personShare}>{c.pct.toFixed(0)}%</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
       {/* Hours by person */}
       {persons.length > 0 ? (
         <View style={s.matrixCard} wrap={false}>
@@ -1142,6 +1185,7 @@ export type MonthlyPdfPayload = {
   projects: Array<{
     name: string;
     color: string | null;
+    sourceKind?: string;
     byWeek: Record<string, number>;
     total: number;
   }>;
@@ -1154,6 +1198,8 @@ export type MonthlyPdfPayload = {
       tasksInProgress: number;
       tasksBlocked: number;
       tasksTotal: number;
+      byRole?: Array<{ label: string; hours: number }>;
+      byContext?: Array<{ label: string; hours: number }>;
     }
   >;
   weekTotals: Array<{ key: string; wallClock: number; manHours: number; tasks: number }>;

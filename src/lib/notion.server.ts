@@ -52,6 +52,10 @@ export interface NotionTask {
   priority: string;
   module: string;
   blocked: boolean;
+  /** "Role" select property — e.g. Tasking/Reviewing/Client Comm/Analysis. Empty if unset. */
+  role: string;
+  /** "Context" multi-select property — task can belong to multiple contexts. */
+  context: string[];
   /** All Notion properties flattened to readable string. Includes custom fields (Payment, Side, etc). */
   raw: Record<string, string>;
 }
@@ -250,6 +254,8 @@ export function mapPageToTask(page: any): NotionTask {
   const priority = getProp(p, ["Priority"]);
   const moduleProp = getProp(p, ["Module", "Feature", "Module/Feature"]);
   const blocked = getProp(p, ["Blocked", "Blocked Status", "Is Blocked"]);
+  const roleProp = getProp(p, ["Role"]);
+  const contextProp = getProp(p, ["Context"]);
 
   const d = extractDate(date);
   const s = extractDate(startTime);
@@ -275,6 +281,10 @@ export function mapPageToTask(page: any): NotionTask {
     priority: extractText(priority),
     module: extractText(moduleProp),
     blocked: extractCheckbox(blocked) || /blocked/i.test(extractText(blocked)),
+    role: roleProp?.select?.name ?? "",
+    context: Array.isArray(contextProp?.multi_select)
+      ? contextProp.multi_select.map((s: any) => s.name).filter(Boolean)
+      : [],
     raw: flattenAllProperties(page),
   };
 }
@@ -334,6 +344,15 @@ export async function queryDatabaseByRelation(
   relationPageId: string,
 ): Promise<NotionTask[]> {
   const filter = { property: relationProperty, relation: { contains: relationPageId } };
+  return queryDatabase(databaseId, filter);
+}
+
+/** Tasks with NO relation set on `relationProperty` — used for non-project activities (Tasking, Reviewing, etc). */
+export async function queryDatabaseUnassigned(
+  databaseId: string,
+  relationProperty: string,
+): Promise<NotionTask[]> {
+  const filter = { property: relationProperty, relation: { is_empty: true } };
   return queryDatabase(databaseId, filter);
 }
 
