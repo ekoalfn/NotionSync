@@ -109,6 +109,14 @@ function ReportPage() {
 // share the week navigator and data fetch.
 function WeeklyBasedTab({ tab }: { tab: Exclude<Tab, "monthly"> }) {
   const [weekStart, setWeekStart] = useState<string | undefined>(undefined);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const toggleProject = (id: string) =>
+    setHidden((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   const fetchAgg = useServerFn(getWeeklyAggregate);
   const { data: agg } = useSuspenseQuery({
     queryKey: ["weekly", weekStart ?? "current"],
@@ -162,7 +170,7 @@ function WeeklyBasedTab({ tab }: { tab: Exclude<Tab, "monthly"> }) {
         <button
           onClick={() =>
             tab === "daily"
-              ? downloadDailyReport(agg, notes, `nowtrack-daily-${agg.weekStart}.pdf`)
+              ? downloadDailyReport(agg, notes, `nowtrack-daily-${agg.weekStart}.pdf`, hidden)
               : downloadWeeklyReport(
                   { kind: "all", agg, ai: null },
                   `nowtrack-weekly-${agg.weekStart}.pdf`,
@@ -180,6 +188,8 @@ function WeeklyBasedTab({ tab }: { tab: Exclude<Tab, "monthly"> }) {
           agg={agg}
           notes={notes}
           onSaveNote={(date, projectId, note) => saveNote.mutate({ date, projectId, note })}
+          hidden={hidden}
+          onToggleProject={toggleProject}
         />
       ) : (
         <WeeklyReport agg={agg} />

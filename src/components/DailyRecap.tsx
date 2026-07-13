@@ -60,7 +60,8 @@ export function noteKey(iso: string, projectId: string) {
 
 // Shared by the on-screen table AND the PDF export so both stay in sync.
 // Shows at least Senin–Sabtu (6 days) even if the workdays divisor is 5.
-export function buildDailyRows(agg: WeeklyAgg): DailyDay[] {
+// `hidden` = projectIds to exclude (filter chips).
+export function buildDailyRows(agg: WeeklyAgg, hidden?: Set<string>): DailyDay[] {
   const workdays = agg.workdaysPerWeek || 5;
   const targetDaily = (p: Project): number | null =>
     p.targetHoursPerDay != null
@@ -73,6 +74,7 @@ export function buildDailyRows(agg: WeeklyAgg): DailyDay[] {
   return Array.from({ length: displayDays }, (_, i) => {
     const iso = addDaysISO(agg.weekStart, i);
     const rows = agg.projects
+      .filter((p) => !hidden?.has(p.projectId))
       .map((p) => ({
         project: p,
         actual: p.tasks.reduce((s, t) => (t.date === iso ? s + t.duration : s), 0),
@@ -107,90 +109,123 @@ export function DailyRecap({
   agg,
   notes = {},
   onSaveNote,
+  hidden,
+  onToggleProject,
 }: {
   agg: WeeklyAgg;
   notes?: Record<string, string>;
   onSaveNote?: (iso: string, projectId: string, note: string) => void;
+  hidden?: Set<string>;
+  onToggleProject?: (projectId: string) => void;
 }) {
-  const days = buildDailyRows(agg);
+  const days = buildDailyRows(agg, hidden);
 
-  if (days.length === 0) {
-    return (
-      <section className="glass rounded-[2rem] p-6 md:p-8">
-        <h3 className="font-display font-semibold text-lg mb-2">Daily Project Recap</h3>
-        <p className="text-sm text-foreground/50">
-          Belum ada target harian atau jam tercatat minggu ini.
-        </p>
-      </section>
-    );
-  }
+  const filterBar = onToggleProject && agg.projects.length > 0 && (
+    <div className="flex flex-wrap gap-2 mb-4">
+      {agg.projects.map((p) => {
+        const on = !hidden?.has(p.projectId);
+        return (
+          <button
+            key={p.projectId}
+            onClick={() => onToggleProject(p.projectId)}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
+              on
+                ? "border-foreground/15 bg-foreground/[0.06] text-foreground/80"
+                : "border-transparent text-foreground/30 line-through"
+            }`}
+          >
+            <span
+              className="size-2 rounded-full shrink-0"
+              style={{ backgroundColor: on ? resolveColor(p.color) : "currentColor" }}
+            />
+            {p.name}
+          </button>
+        );
+      })}
+    </div>
+  );
 
   return (
     <section className="glass rounded-[2rem] p-6 md:p-8">
       <h3 className="font-display font-semibold text-lg mb-4">Daily Project Recap</h3>
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm border-collapse">
-          <thead>
-            <tr className="text-[10px] font-mono uppercase tracking-[0.18em] text-foreground/40 text-left">
-              <th className="py-2 pr-4 font-normal">Date</th>
-              <th className="py-2 pr-4 font-normal">Project</th>
-              <th className="py-2 pr-4 font-normal">Target</th>
-              <th className="py-2 pr-4 font-normal">Actual</th>
-              <th className="py-2 font-normal">Notes</th>
-            </tr>
-          </thead>
-          <tbody>
-            {days.map((d) =>
-              d.rows.map((r, ri) => {
-                const key = noteKey(d.iso, r.project.projectId);
-                return (
-                  <tr key={key} className="border-t border-foreground/[0.06]">
-                    {ri === 0 && (
-                      <td
-                        rowSpan={d.rows.length}
-                        className="py-3 pr-4 align-top font-medium text-foreground/80 whitespace-nowrap"
-                      >
-                        {d.label}
-                      </td>
-                    )}
-                    <td className="py-3 pr-4">
-                      <span className="flex items-center gap-2">
-                        <span
-                          className="size-2.5 rounded-full shrink-0"
-                          style={{ backgroundColor: resolveColor(r.project.color) }}
-                        />
-                        {r.project.name}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 font-mono text-foreground/70 whitespace-nowrap">
-                      {r.target != null && r.target > 0 ? fmtJam(r.target) : "—"}
-                    </td>
-                    <td
-                      className={`py-3 pr-4 font-mono whitespace-nowrap ${
-                        r.target != null && r.target > 0 && r.actual >= r.target
-                          ? "text-foreground"
-                          : "text-foreground/70"
-                      }`}
+      {filterBar}
+      {days.length === 0 ? (
+        <p className="text-sm text-foreground/50">
+          Belum ada target harian atau jam tercatat minggu ini.
+        </p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="text-[10px] font-mono uppercase tracking-[0.18em] text-foreground/40 text-left">
+                <th className="py-2 pr-4 font-normal">Date</th>
+                <th className="py-2 pr-4 font-normal">Project</th>
+                <th className="py-2 pr-4 font-normal">Target</th>
+                <th className="py-2 pr-4 font-normal">Actual</th>
+                <th className="py-2 font-normal">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {days.map((d, di) =>
+                d.rows.map((r, ri) => {
+                  const key = noteKey(d.iso, r.project.projectId);
+                  const sep = ri === 0 && di > 0;
+                  return (
+                    <tr
+                      key={key}
+                      className={
+                        sep
+                          ? "border-t-2 border-foreground/20"
+                          : "border-t border-foreground/[0.06]"
+                      }
                     >
-                      {fmtJam(r.actual)}
-                    </td>
-                    <td className="py-2 pr-0 align-middle">
-                      {onSaveNote ? (
-                        <NoteCell
-                          value={notes[key] ?? ""}
-                          onSave={(v) => onSaveNote(d.iso, r.project.projectId, v)}
-                        />
-                      ) : (
-                        <span className="text-foreground/70">{notes[key] ?? "—"}</span>
+                      {ri === 0 && (
+                        <td
+                          rowSpan={d.rows.length}
+                          className="py-3 pr-4 align-top font-medium text-foreground/80 whitespace-nowrap"
+                        >
+                          {d.label}
+                        </td>
                       )}
-                    </td>
-                  </tr>
-                );
-              }),
-            )}
-          </tbody>
-        </table>
-      </div>
+                      <td className="py-3 pr-4">
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="size-2.5 rounded-full shrink-0"
+                            style={{ backgroundColor: resolveColor(r.project.color) }}
+                          />
+                          {r.project.name}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4 font-mono text-foreground/70 whitespace-nowrap">
+                        {r.target != null && r.target > 0 ? fmtJam(r.target) : "—"}
+                      </td>
+                      <td
+                        className={`py-3 pr-4 font-mono whitespace-nowrap ${
+                          r.target != null && r.target > 0 && r.actual >= r.target
+                            ? "text-foreground"
+                            : "text-foreground/70"
+                        }`}
+                      >
+                        {fmtJam(r.actual)}
+                      </td>
+                      <td className="py-2 pr-0 align-middle">
+                        {onSaveNote ? (
+                          <NoteCell
+                            value={notes[key] ?? ""}
+                            onSave={(v) => onSaveNote(d.iso, r.project.projectId, v)}
+                          />
+                        ) : (
+                          <span className="text-foreground/70">{notes[key] ?? "—"}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                }),
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
     </section>
   );
 }

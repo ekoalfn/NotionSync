@@ -59,6 +59,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     alignItems: "flex-start",
   },
+  dayStart: { borderTop: "1pt solid #222" },
   cDate: { width: "16%", paddingRight: 6, fontFamily: "Helvetica-Bold" },
   cProject: { width: "22%", paddingRight: 6, flexDirection: "row", alignItems: "center", gap: 4 },
   dot: { width: 6, height: 6, borderRadius: 3 },
@@ -80,11 +81,13 @@ function fmtRange(start: string, end: string) {
 export function DailyReportDocument({
   agg,
   notes,
+  hidden,
 }: {
   agg: WeeklyAgg;
   notes: Record<string, string>;
+  hidden?: Set<string>;
 }) {
-  const days = buildDailyRows(agg);
+  const days = buildDailyRows(agg, hidden);
 
   return (
     <Document>
@@ -116,11 +119,16 @@ export function DailyReportDocument({
             Belum ada target harian atau jam tercatat minggu ini.
           </Text>
         ) : (
-          days.map((d) =>
+          days.map((d, di) =>
             d.rows.map((r, ri) => {
               const met = r.target != null && r.target > 0 && r.actual >= r.target;
+              const sep = ri === 0 && di > 0;
               return (
-                <View key={`${d.iso}-${r.project.projectId}`} style={styles.row} wrap={false}>
+                <View
+                  key={`${d.iso}-${r.project.projectId}`}
+                  style={sep ? [styles.row, styles.dayStart] : styles.row}
+                  wrap={false}
+                >
                   <Text style={styles.cDate}>{ri === 0 ? d.label : ""}</Text>
                   <View style={styles.cProject}>
                     <View
@@ -149,8 +157,9 @@ export async function downloadDailyReport(
   agg: WeeklyAgg,
   notes: Record<string, string>,
   filename: string,
+  hidden?: Set<string>,
 ) {
-  const blob = await pdf(<DailyReportDocument agg={agg} notes={notes} />).toBlob();
+  const blob = await pdf(<DailyReportDocument agg={agg} notes={notes} hidden={hidden} />).toBlob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
