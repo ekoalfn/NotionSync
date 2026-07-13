@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      daily_notes: {
+        Row: {
+          date: string
+          project_id: string
+          note: string
+          updated_at: string
+        }
+        Insert: {
+          date: string
+          project_id: string
+          note?: string
+          updated_at?: string
+        }
+        Update: {
+          date?: string
+          project_id?: string
+          note?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ai_insights: {
         Row: {
           created_at: string
@@ -127,6 +148,7 @@ export type Database = {
           relation_property: string | null
           relation_page_id: string | null
           target_hours_per_week: number | null
+          target_hours_per_day: number | null
           updated_at: string
         }
         Insert: {
@@ -140,6 +162,7 @@ export type Database = {
           relation_property?: string | null
           relation_page_id?: string | null
           target_hours_per_week?: number | null
+          target_hours_per_day?: number | null
           updated_at?: string
         }
         Update: {
@@ -153,6 +176,7 @@ export type Database = {
           relation_property?: string | null
           relation_page_id?: string | null
           target_hours_per_week?: number | null
+          target_hours_per_day?: number | null
           updated_at?: string
         }
         Relationships: []

@@ -29,9 +29,7 @@ export const Route = createFileRoute("/_authenticated/projects/$projectId")({
     </div>
   ),
   errorComponent: ({ error }) => (
-    <div className="glass rounded-[2rem] p-12 text-center text-foreground/70">
-      {error.message}
-    </div>
+    <div className="glass rounded-[2rem] p-12 text-center text-foreground/70">{error.message}</div>
   ),
 });
 
@@ -94,14 +92,34 @@ function ProjectDetailContent() {
     return (
       <>
         <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-          <Link to="/projects" className="text-xs font-mono uppercase tracking-[0.2em] text-foreground/50 hover:text-foreground transition-colors">
+          <Link
+            to="/projects"
+            className="text-xs font-mono uppercase tracking-[0.2em] text-foreground/50 hover:text-foreground transition-colors"
+          >
             ← All projects
           </Link>
           <div className="glass rounded-full p-1.5 flex items-center gap-1">
-            <button onClick={() => setWeekStart(shiftWeek(agg.weekStart, -1))} className="px-3 py-1.5 text-sm text-foreground/50 hover:text-foreground rounded-full">←</button>
-            <span className="px-3 text-sm font-mono text-foreground/70">{formatRange(agg.weekStart, agg.weekEnd)}</span>
-            <button onClick={() => setWeekStart(undefined)} className="px-4 py-1.5 text-[10px] font-bold uppercase bg-white text-black rounded-full">Today</button>
-            <button onClick={() => setWeekStart(shiftWeek(agg.weekStart, 1))} className="px-3 py-1.5 text-sm text-foreground/50 hover:text-foreground rounded-full">→</button>
+            <button
+              onClick={() => setWeekStart(shiftWeek(agg.weekStart, -1))}
+              className="px-3 py-1.5 text-sm text-foreground/50 hover:text-foreground rounded-full"
+            >
+              ←
+            </button>
+            <span className="px-3 text-sm font-mono text-foreground/70">
+              {formatRange(agg.weekStart, agg.weekEnd)}
+            </span>
+            <button
+              onClick={() => setWeekStart(undefined)}
+              className="px-4 py-1.5 text-[10px] font-bold uppercase bg-white text-black rounded-full"
+            >
+              Today
+            </button>
+            <button
+              onClick={() => setWeekStart(shiftWeek(agg.weekStart, 1))}
+              className="px-3 py-1.5 text-sm text-foreground/50 hover:text-foreground rounded-full"
+            >
+              →
+            </button>
           </div>
         </div>
         <div className="glass rounded-[2rem] p-12 text-center text-foreground/60">
@@ -112,13 +130,20 @@ function ProjectDetailContent() {
   }
 
   const target = project.targetHoursPerWeek;
-  const targetPct = target && target > 0 ? Math.min(999, (project.totalHours / target) * 100) : null;
+  const targetPct =
+    target && target > 0 ? Math.min(999, (project.totalHours / target) * 100) : null;
   const remaining = target != null ? target - project.totalHours : null;
-  let trackStatus: { label: string; tone: string } = { label: "No target set", tone: "bg-foreground/10 text-foreground/60" };
+  let trackStatus: { label: string; tone: string } = {
+    label: "No target set",
+    tone: "bg-foreground/10 text-foreground/60",
+  };
   if (target != null && target > 0) {
-    if (project.totalHours >= target) trackStatus = { label: "Target met", tone: "bg-foreground/70 text-background" };
-    else if (targetPct! >= 75) trackStatus = { label: "On track", tone: "bg-foreground/40 text-background" };
-    else if (targetPct! >= 40) trackStatus = { label: "Behind", tone: "bg-foreground/25 text-foreground" };
+    if (project.totalHours >= target)
+      trackStatus = { label: "Target met", tone: "bg-foreground/70 text-background" };
+    else if (targetPct! >= 75)
+      trackStatus = { label: "On track", tone: "bg-foreground/40 text-background" };
+    else if (targetPct! >= 40)
+      trackStatus = { label: "Behind", tone: "bg-foreground/25 text-foreground" };
     else trackStatus = { label: "Far behind", tone: "bg-foreground/15 text-foreground/80" };
   }
 
@@ -139,26 +164,34 @@ function ProjectDetailContent() {
     .sort((a, b) => b.hours - a.hours);
   const maxPersonHours = Math.max(1, ...people.map((p) => p.hours));
 
-  const tasksSorted = [...project.tasks].sort((a, b) =>
-    (b.date ?? "").localeCompare(a.date ?? ""),
-  );
+  const tasksSorted = [...project.tasks].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   const totalTasks = project.tasks.length;
   const avgDuration = totalTasks
     ? project.tasks.reduce((s, t) => s + t.duration, 0) / totalTasks
     : 0;
-  const longestTask = project.tasks.reduce<
-    (typeof project.tasks)[number] | null
-  >((acc, t) => (!acc || t.duration > acc.duration ? t : acc), null);
+  const longestTask = project.tasks.reduce<(typeof project.tasks)[number] | null>(
+    (acc, t) => (!acc || t.duration > acc.duration ? t : acc),
+    null,
+  );
   const topContributor = people[0] ?? null;
 
   // Target editor modal
   const [targetInput, setTargetInput] = useState<string>(target?.toString() ?? "");
+  const [dailyInput, setDailyInput] = useState<string>(project.targetHoursPerDay?.toString() ?? "");
   const [targetModalOpen, setTargetModalOpen] = useState(false);
   const [view, setView] = useState<"list" | "calendar">("list");
   const tasksPager = usePager(tasksSorted, 10, project.projectId);
+  const workdays = agg.workdaysPerWeek || 5;
+  const autoDaily = target != null ? target / workdays : null;
   const saveTarget = useMutation({
-    mutationFn: (value: number | null) =>
-      saveTargetFn({ data: { id: project.projectId, target_hours_per_week: value } }),
+    mutationFn: (vals: { week: number | null; day: number | null }) =>
+      saveTargetFn({
+        data: {
+          id: project.projectId,
+          target_hours_per_week: vals.week,
+          target_hours_per_day: vals.day,
+        },
+      }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["weekly"] });
       qc.invalidateQueries({ queryKey: ["projects"] });
@@ -245,7 +278,9 @@ function ProjectDetailContent() {
           <div>
             <div className="flex items-center gap-2">
               <h2 className="font-display font-bold text-lg">Weekly target</h2>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider ${trackStatus.tone}`}>
+              <span
+                className={`px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider ${trackStatus.tone}`}
+              >
                 {trackStatus.label}
               </span>
             </div>
@@ -273,14 +308,21 @@ function ProjectDetailContent() {
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  const raw = targetInput.trim();
-                  if (raw === "") {
-                    saveTarget.mutate(null);
-                  } else {
-                    const num = Number(raw);
-                    if (!Number.isFinite(num) || num < 0 || num > 1000) return;
-                    saveTarget.mutate(num);
+                  const rawW = targetInput.trim();
+                  let week: number | null = null;
+                  if (rawW !== "") {
+                    const n = Number(rawW);
+                    if (!Number.isFinite(n) || n < 0 || n > 1000) return;
+                    week = n;
                   }
+                  const rawD = dailyInput.trim();
+                  let day: number | null = null;
+                  if (rawD !== "") {
+                    const n = Number(rawD);
+                    if (!Number.isFinite(n) || n < 0 || n > 24) return;
+                    day = n;
+                  }
+                  saveTarget.mutate({ week, day });
                 }}
                 className="px-6 py-4 space-y-4"
               >
@@ -303,11 +345,35 @@ function ProjectDetailContent() {
                     <span className="text-sm text-foreground/50 font-mono">h/week</span>
                   </div>
                 </div>
+                <div>
+                  <label className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40 mb-2 block">
+                    Target / hari
+                  </label>
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      step="0.5"
+                      min="0"
+                      max="24"
+                      value={dailyInput}
+                      onChange={(e) => setDailyInput(e.target.value)}
+                      placeholder={autoDaily != null ? `auto: ${autoDaily.toFixed(1)}` : "otomatis"}
+                      className="flex-1 px-4 py-3 bg-foreground/[0.05] border border-foreground/10 rounded-xl text-sm font-mono backdrop-blur focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                    />
+                    <span className="text-sm text-foreground/50 font-mono">h/hari</span>
+                  </div>
+                  <p className="text-[10px] text-foreground/40 mt-1.5">
+                    Kosongkan untuk hitung otomatis dari target mingguan ÷ {workdays} hari kerja.
+                  </p>
+                </div>
                 <DialogFooter className="px-0 pb-2 flex-row gap-3">
                   <DialogClose asChild>
                     <button
                       type="button"
-                      onClick={() => setTargetInput(target?.toString() ?? "")}
+                      onClick={() => {
+                        setTargetInput(target?.toString() ?? "");
+                        setDailyInput(project.targetHoursPerDay?.toString() ?? "");
+                      }}
                       className="flex-1 px-4 py-3 rounded-xl text-sm font-medium bg-foreground/[0.05] hover:bg-foreground/[0.1] transition-colors"
                     >
                       Cancel
@@ -330,7 +396,9 @@ function ProjectDetailContent() {
           <>
             <div className="flex items-baseline justify-between mb-2 text-sm">
               <span className="font-mono tabular-nums">
-                <span className="font-display font-extrabold text-2xl">{project.totalHours.toFixed(1)}</span>
+                <span className="font-display font-extrabold text-2xl">
+                  {project.totalHours.toFixed(1)}
+                </span>
                 <span className="text-foreground/50"> / {target}h</span>
               </span>
               <span className="font-mono tabular-nums text-foreground/70">
@@ -339,7 +407,10 @@ function ProjectDetailContent() {
                   <span className="text-foreground/50"> · {remaining!.toFixed(1)}h to go</span>
                 )}
                 {remaining! < 0 && (
-                  <span className="text-foreground/50"> · +{Math.abs(remaining!).toFixed(1)}h over</span>
+                  <span className="text-foreground/50">
+                    {" "}
+                    · +{Math.abs(remaining!).toFixed(1)}h over
+                  </span>
                 )}
               </span>
             </div>
@@ -366,13 +437,15 @@ function ProjectDetailContent() {
                   {topContributor.name}
                 </Link>{" "}
                 · {topContributor.hours.toFixed(1)}h (
-                {((topContributor.hours / Math.max(project.totalHours, 0.0001)) * 100).toFixed(0)}% of project)
+                {((topContributor.hours / Math.max(project.totalHours, 0.0001)) * 100).toFixed(0)}%
+                of project)
               </p>
             )}
           </>
         ) : (
           <p className="text-sm text-foreground/50">
-            {project.totalHours.toFixed(1)}h logged this week. Set a target to see progress and pacing.
+            {project.totalHours.toFixed(1)}h logged this week. Set a target to see progress and
+            pacing.
           </p>
         )}
       </section>
@@ -429,10 +502,7 @@ function ProjectDetailContent() {
 
         <div className="glass rounded-[2rem] p-6 space-y-4">
           <h2 className="font-display font-bold text-lg">Highlights</h2>
-          <Stat
-            label="Avg duration / task"
-            value={`${avgDuration.toFixed(1)}h`}
-          />
+          <Stat label="Avg duration / task" value={`${avgDuration.toFixed(1)}h`} />
           <Stat
             label="Longest task"
             value={longestTask ? `${longestTask.duration.toFixed(1)}h` : "—"}
@@ -440,11 +510,7 @@ function ProjectDetailContent() {
           />
           <Stat
             label="Completion rate"
-            value={
-              totalTasks
-                ? `${Math.round((project.tasksDone / totalTasks) * 100)}%`
-                : "—"
-            }
+            value={totalTasks ? `${Math.round((project.tasksDone / totalTasks) * 100)}%` : "—"}
           />
         </div>
       </div>
@@ -464,54 +530,54 @@ function ProjectDetailContent() {
           <p className="text-sm text-foreground/50">No tasks recorded this week.</p>
         ) : view === "list" ? (
           <>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-[10px] font-mono uppercase tracking-[0.18em] text-foreground/40 border-b border-foreground/10">
-                  <th className="py-2 pr-4 font-normal">Task</th>
-                  <th className="py-2 pr-4 font-normal">Assignees</th>
-                  <th className="py-2 pr-4 font-normal">Status</th>
-                  <th className="py-2 pr-4 font-normal">Date</th>
-                  <th className="py-2 pl-4 font-normal text-right">Duration</th>
-                </tr>
-              </thead>
-              <tbody>
-                {tasksPager.pageItems.map((t) => (
-                  <tr
-                    key={t.id}
-                    className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.02] transition-colors"
-                  >
-                    <td className="py-3 pr-4 max-w-[28ch]">
-                      <p className="font-medium truncate">{t.title}</p>
-                    </td>
-                    <td className="py-3 pr-4 text-foreground/70 max-w-[20ch] truncate">
-                      {t.assignees.length ? t.assignees.join(", ") : "Unassigned"}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span
-                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider ${statusTone(t.status, t.blocked)}`}
-                      >
-                        {t.blocked ? "blocked" : t.status || "—"}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 text-foreground/60 font-mono text-xs">
-                      {fmtDate(t.date)}
-                    </td>
-                    <td className="py-3 pl-4 text-right font-mono tabular-nums">
-                      {t.duration.toFixed(1)}h
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-[10px] font-mono uppercase tracking-[0.18em] text-foreground/40 border-b border-foreground/10">
+                    <th className="py-2 pr-4 font-normal">Task</th>
+                    <th className="py-2 pr-4 font-normal">Assignees</th>
+                    <th className="py-2 pr-4 font-normal">Status</th>
+                    <th className="py-2 pr-4 font-normal">Date</th>
+                    <th className="py-2 pl-4 font-normal text-right">Duration</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <Pager
-            page={tasksPager.page}
-            totalPages={tasksPager.totalPages}
-            onChange={tasksPager.setPage}
-            total={tasksPager.total}
-            pageSize={tasksPager.pageSize}
-          />
+                </thead>
+                <tbody>
+                  {tasksPager.pageItems.map((t) => (
+                    <tr
+                      key={t.id}
+                      className="border-b border-foreground/[0.06] last:border-0 hover:bg-foreground/[0.02] transition-colors"
+                    >
+                      <td className="py-3 pr-4 max-w-[28ch]">
+                        <p className="font-medium truncate">{t.title}</p>
+                      </td>
+                      <td className="py-3 pr-4 text-foreground/70 max-w-[20ch] truncate">
+                        {t.assignees.length ? t.assignees.join(", ") : "Unassigned"}
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider ${statusTone(t.status, t.blocked)}`}
+                        >
+                          {t.blocked ? "blocked" : t.status || "—"}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4 text-foreground/60 font-mono text-xs">
+                        {fmtDate(t.date)}
+                      </td>
+                      <td className="py-3 pl-4 text-right font-mono tabular-nums">
+                        {t.duration.toFixed(1)}h
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <Pager
+              page={tasksPager.page}
+              totalPages={tasksPager.totalPages}
+              onChange={tasksPager.setPage}
+              total={tasksPager.total}
+              pageSize={tasksPager.pageSize}
+            />
           </>
         ) : (
           <TaskCalendar tasks={tasksSorted} anchorDate={agg.weekStart} />
@@ -529,7 +595,9 @@ function ProjectDetailContent() {
             type="button"
             onClick={() => setView(v)}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-mono uppercase tracking-[0.18em] transition-colors ${
-              view === v ? "bg-foreground text-background" : "text-foreground/60 hover:text-foreground"
+              view === v
+                ? "bg-foreground text-background"
+                : "text-foreground/60 hover:text-foreground"
             }`}
           >
             {v}
@@ -543,9 +611,7 @@ function ProjectDetailContent() {
 function KPI({ label, value }: { label: string; value: number }) {
   return (
     <div className="glass rounded-2xl p-4">
-      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40">
-        {label}
-      </p>
+      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40">{label}</p>
       <p className="font-display font-extrabold text-2xl tabular-nums mt-1">{value}</p>
     </div>
   );
@@ -554,9 +620,7 @@ function KPI({ label, value }: { label: string; value: number }) {
 function Stat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div>
-      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40">
-        {label}
-      </p>
+      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40">{label}</p>
       <p className="font-display font-bold text-xl tabular-nums">{value}</p>
       {sub && <p className="text-xs text-foreground/50 truncate mt-0.5">{sub}</p>}
     </div>
@@ -718,10 +782,17 @@ function TaskCalendar({ tasks, anchorDate }: { tasks: CalendarTask[]; anchorDate
         <DialogContent className="border-foreground/10 bg-background/80 backdrop-blur-xl max-w-lg rounded-[1.5rem] p-0 overflow-hidden">
           <DialogHeader className="text-left px-6 pt-6 pb-2">
             <DialogTitle className="font-display font-bold text-xl">
-              {popupDate ? popupDate.toLocaleDateString(undefined, { weekday: "long", day: "numeric", month: "long" }) : ""}
+              {popupDate
+                ? popupDate.toLocaleDateString(undefined, {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                  })
+                : ""}
             </DialogTitle>
             <DialogDescription className="text-sm text-foreground/50">
-              {popupTasks.length} task{popupTasks.length === 1 ? "" : "s"} · {popupTasks.reduce((s, t) => s + t.duration, 0).toFixed(1)}h
+              {popupTasks.length} task{popupTasks.length === 1 ? "" : "s"} ·{" "}
+              {popupTasks.reduce((s, t) => s + t.duration, 0).toFixed(1)}h
             </DialogDescription>
           </DialogHeader>
           <div className="px-6 py-4 space-y-2 max-h-[60vh] overflow-y-auto">
@@ -762,15 +833,17 @@ function TaskCalendar({ tasks, anchorDate }: { tasks: CalendarTask[]; anchorDate
                   {detailTask.title}
                 </DialogTitle>
                 <DialogDescription className="text-sm text-foreground/50">
-                  {detailTask.module && <span className="inline-block mr-2">{detailTask.module}</span>}
-                  {detailTask.date && (
-                    <span>{fmtDate(detailTask.date)}</span>
+                  {detailTask.module && (
+                    <span className="inline-block mr-2">{detailTask.module}</span>
                   )}
+                  {detailTask.date && <span>{fmtDate(detailTask.date)}</span>}
                 </DialogDescription>
               </DialogHeader>
               <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
                 <div className="flex flex-wrap gap-2">
-                  <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider ${statusTone(detailTask.status, detailTask.blocked)}`}>
+                  <span
+                    className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-mono uppercase tracking-wider ${statusTone(detailTask.status, detailTask.blocked)}`}
+                  >
                     {detailTask.blocked ? "blocked" : detailTask.status || "—"}
                   </span>
                   {detailTask.priority && (
@@ -782,23 +855,36 @@ function TaskCalendar({ tasks, anchorDate }: { tasks: CalendarTask[]; anchorDate
 
                 <div className="grid grid-cols-2 gap-3">
                   <div className="p-3 rounded-xl bg-foreground/[0.03] ring-1 ring-inset ring-white/5">
-                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40">Duration</p>
-                    <p className="font-display font-bold text-lg tabular-nums">{detailTask.duration.toFixed(1)}h</p>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40">
+                      Duration
+                    </p>
+                    <p className="font-display font-bold text-lg tabular-nums">
+                      {detailTask.duration.toFixed(1)}h
+                    </p>
                   </div>
                   {detailTask.estimated > 0 && (
                     <div className="p-3 rounded-xl bg-foreground/[0.03] ring-1 ring-inset ring-white/5">
-                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40">Estimated</p>
-                      <p className="font-display font-bold text-lg tabular-nums">{detailTask.estimated.toFixed(1)}h</p>
+                      <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40">
+                        Estimated
+                      </p>
+                      <p className="font-display font-bold text-lg tabular-nums">
+                        {detailTask.estimated.toFixed(1)}h
+                      </p>
                     </div>
                   )}
                 </div>
 
                 {detailTask.assignees.length > 0 && (
                   <div>
-                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40 mb-1.5">Assignees</p>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40 mb-1.5">
+                      Assignees
+                    </p>
                     <div className="flex flex-wrap gap-1.5">
                       {detailTask.assignees.map((a) => (
-                        <span key={a} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-foreground/[0.05] ring-1 ring-inset ring-white/5">
+                        <span
+                          key={a}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-foreground/[0.05] ring-1 ring-inset ring-white/5"
+                        >
                           <span className="size-1.5 rounded-full bg-foreground/40" />
                           {a}
                         </span>
@@ -809,11 +895,23 @@ function TaskCalendar({ tasks, anchorDate }: { tasks: CalendarTask[]; anchorDate
 
                 {(detailTask.startTime || detailTask.endTime) && (
                   <div>
-                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40 mb-1.5">Time</p>
+                    <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-foreground/40 mb-1.5">
+                      Time
+                    </p>
                     <p className="text-sm font-mono text-foreground/70">
-                      {detailTask.startTime ? new Date(detailTask.startTime).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "—"}
+                      {detailTask.startTime
+                        ? new Date(detailTask.startTime).toLocaleTimeString(undefined, {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
                       {" → "}
-                      {detailTask.endTime ? new Date(detailTask.endTime).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : "—"}
+                      {detailTask.endTime
+                        ? new Date(detailTask.endTime).toLocaleTimeString(undefined, {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "—"}
                     </p>
                   </div>
                 )}

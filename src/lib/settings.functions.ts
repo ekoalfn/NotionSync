@@ -136,7 +136,7 @@ export const listAiModels = createServerFn({ method: "POST" })
     const json: any = await res.json();
     const list: any[] = json.data ?? json.models ?? json ?? [];
     const models = list
-      .map((m) => (typeof m === "string" ? m : m.id ?? m.name ?? m.model))
+      .map((m) => (typeof m === "string" ? m : (m.id ?? m.name ?? m.model)))
       .filter((x): x is string => typeof x === "string" && x.length > 0)
       .sort();
     return { models, source: "live" as const };
@@ -147,18 +147,23 @@ export const listAiModels = createServerFn({ method: "POST" })
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DEFAULT_NORMAL_HOURS = 42;
+const DEFAULT_WORKDAYS = 5;
 
 export const getCapacityConfig = createServerFn({ method: "GET" }).handler(async () => {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data } = await supabaseAdmin
     .from("app_settings")
     .select("key,value")
-    .eq("key", "normal_hours_per_week")
-    .maybeSingle();
-  const raw = data?.value;
-  const n = raw ? Number(raw) : NaN;
+    .in("key", ["normal_hours_per_week", "workdays_per_week"]);
+  const map = new Map((data ?? []).map((r) => [r.key, r.value]));
+
+  const n = map.get("normal_hours_per_week") ? Number(map.get("normal_hours_per_week")) : NaN;
   const normalHoursPerWeek = Number.isFinite(n) && n > 0 ? n : DEFAULT_NORMAL_HOURS;
-  return { normalHoursPerWeek };
+
+  const w = map.get("workdays_per_week") ? Number(map.get("workdays_per_week")) : NaN;
+  const workdaysPerWeek = Number.isFinite(w) && w >= 1 && w <= 7 ? Math.round(w) : DEFAULT_WORKDAYS;
+
+  return { normalHoursPerWeek, workdaysPerWeek };
 });
 
 export const setCapacityConfig = createServerFn({ method: "POST" })
@@ -166,18 +171,19 @@ export const setCapacityConfig = createServerFn({ method: "POST" })
     z.object({
       // Sane bounds: 1h..168h (a week max). Caller can pick anything in between.
       normalHoursPerWeek: z.number().min(1).max(168),
+      workdaysPerWeek: z.number().int().min(1).max(7),
     }),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const now = new Date().toISOString();
     const { error } = await supabaseAdmin.from("app_settings").upsert(
-      {
-        key: "normal_hours_per_week",
-        value: String(data.normalHoursPerWeek),
-        updated_at: new Date().toISOString(),
-      },
+      [
+        { key: "normal_hours_per_week", value: String(data.normalHoursPerWeek), updated_at: now },
+        { key: "workdays_per_week", value: String(data.workdaysPerWeek), updated_at: now },
+      ],
       { onConflict: "key" },
     );
     if (error) throw new Error(error.message);
-    return { ok: true, normalHoursPerWeek: data.normalHoursPerWeek };
+    return { ok: true, ...data };
   });

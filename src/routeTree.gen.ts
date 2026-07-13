@@ -15,6 +15,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
 import { Route as AuthenticatedTeamRouteImport } from './routes/_authenticated/team'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedReportRouteImport } from './routes/_authenticated/report'
 import { Route as AuthenticatedProjectsRouteImport } from './routes/_authenticated/projects'
 import { Route as AuthenticatedMonthlyRouteImport } from './routes/_authenticated/monthly'
 import { Route as AuthenticatedAiInsightsRouteImport } from './routes/_authenticated/ai-insights'
@@ -51,6 +52,11 @@ const AuthenticatedTeamRoute = AuthenticatedTeamRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedReportRoute = AuthenticatedReportRouteImport.update({
+  id: '/report',
+  path: '/report',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedProjectsRoute = AuthenticatedProjectsRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/ai-insights': typeof AuthenticatedAiInsightsRoute
   '/monthly': typeof AuthenticatedMonthlyRoute
   '/projects': typeof AuthenticatedProjectsRouteWithChildren
+  '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/team': typeof AuthenticatedTeamRouteWithChildren
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -116,6 +123,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/ai-insights': typeof AuthenticatedAiInsightsRoute
   '/monthly': typeof AuthenticatedMonthlyRoute
+  '/report': typeof AuthenticatedReportRoute
   '/settings': typeof AuthenticatedSettingsRoute
   '/': typeof AuthenticatedIndexRoute
   '/projects/$projectId': typeof AuthenticatedProjectsProjectIdRoute
@@ -132,6 +140,7 @@ export interface FileRoutesById {
   '/_authenticated/ai-insights': typeof AuthenticatedAiInsightsRoute
   '/_authenticated/monthly': typeof AuthenticatedMonthlyRoute
   '/_authenticated/projects': typeof AuthenticatedProjectsRouteWithChildren
+  '/_authenticated/report': typeof AuthenticatedReportRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRoute
   '/_authenticated/team': typeof AuthenticatedTeamRouteWithChildren
   '/_authenticated/': typeof AuthenticatedIndexRoute
@@ -150,6 +159,7 @@ export interface FileRouteTypes {
     | '/ai-insights'
     | '/monthly'
     | '/projects'
+    | '/report'
     | '/settings'
     | '/team'
     | '/projects/$projectId'
@@ -163,6 +173,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/ai-insights'
     | '/monthly'
+    | '/report'
     | '/settings'
     | '/'
     | '/projects/$projectId'
@@ -178,6 +189,7 @@ export interface FileRouteTypes {
     | '/_authenticated/ai-insights'
     | '/_authenticated/monthly'
     | '/_authenticated/projects'
+    | '/_authenticated/report'
     | '/_authenticated/settings'
     | '/_authenticated/team'
     | '/_authenticated/'
@@ -237,6 +249,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/report': {
+      id: '/_authenticated/report'
+      path: '/report'
+      fullPath: '/report'
+      preLoaderRoute: typeof AuthenticatedReportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/projects': {
@@ -330,6 +349,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAiInsightsRoute: typeof AuthenticatedAiInsightsRoute
   AuthenticatedMonthlyRoute: typeof AuthenticatedMonthlyRoute
   AuthenticatedProjectsRoute: typeof AuthenticatedProjectsRouteWithChildren
+  AuthenticatedReportRoute: typeof AuthenticatedReportRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRoute
   AuthenticatedTeamRoute: typeof AuthenticatedTeamRouteWithChildren
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
@@ -339,6 +359,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAiInsightsRoute: AuthenticatedAiInsightsRoute,
   AuthenticatedMonthlyRoute: AuthenticatedMonthlyRoute,
   AuthenticatedProjectsRoute: AuthenticatedProjectsRouteWithChildren,
+  AuthenticatedReportRoute: AuthenticatedReportRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRoute,
   AuthenticatedTeamRoute: AuthenticatedTeamRouteWithChildren,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,

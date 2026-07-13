@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Suspense, useEffect, useMemo, useState, Fragment } from "react";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { useEffect, useMemo, useState, Fragment } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -12,31 +12,18 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { PageSkeleton } from "@/components/PageSkeleton";
 import { getMonthlyReport } from "@/lib/notion.functions";
 import { getMonthlyInsights } from "@/lib/chat.functions";
 import { downloadMonthlyReport } from "@/components/MonthlyReportPDF";
 
+// Monthly now lives inside the unified /report page (Monthly tab). This route
+// only redirects there so old links / bookmarks keep working. The report page
+// imports `MonthlyContent` below directly.
 export const Route = createFileRoute("/_authenticated/monthly")({
-  head: () => ({
-    meta: [
-      { title: "Monthly Report — NowTrack" },
-      {
-        name: "description",
-        content: "Per-week breakdown of team hours and project effort across a custom date range.",
-      },
-    ],
-  }),
-  component: MonthlyPage,
+  beforeLoad: () => {
+    throw redirect({ to: "/report", search: { tab: "monthly" } });
+  },
 });
-
-function MonthlyPage() {
-  return (
-    <Suspense fallback={<PageSkeleton />}>
-      <MonthlyContent />
-    </Suspense>
-  );
-}
 
 // ───────────────────────── helpers ─────────────────────────
 
@@ -106,7 +93,7 @@ function presetLast90(): { start: string; end: string } {
 
 // ───────────────────────── content ─────────────────────────
 
-function MonthlyContent() {
+export function MonthlyContent() {
   const fetchReport = useServerFn(getMonthlyReport);
   const fetchInsights = useServerFn(getMonthlyInsights);
 
@@ -179,9 +166,7 @@ function MonthlyContent() {
 
     const applyFilter = (period: typeof data) => {
       const persons =
-        filterPersons.length > 0
-          ? period.persons.filter((p) => pSet.has(p.name))
-          : period.persons;
+        filterPersons.length > 0 ? period.persons.filter((p) => pSet.has(p.name)) : period.persons;
       const projects =
         filterProjects.length > 0
           ? period.projects.filter((p) => projSet.has(p.name))
@@ -203,9 +188,7 @@ function MonthlyContent() {
         };
       });
       const grandTotals = {
-        wallClock: Number(
-          projects.reduce((s, p) => s + p.total, 0).toFixed(2),
-        ),
+        wallClock: Number(projects.reduce((s, p) => s + p.total, 0).toFixed(2)),
         manHours: Number(persons.reduce((s, p) => s + p.total, 0).toFixed(2)),
         tasks: 0,
       };
@@ -387,7 +370,14 @@ function MonthlyContent() {
                 : "px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wider uppercase glass-tile text-foreground/70 hover:text-foreground transition-colors inline-flex items-center gap-2"
             }
           >
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <svg
+              width="11"
+              height="11"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+            >
               <polygon points="3 4 21 4 14 12 14 19 10 21 10 12 3 4" />
             </svg>
             Filter
@@ -416,17 +406,35 @@ function MonthlyContent() {
               disabled={insightsMut.isPending || !data}
               className="px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wider uppercase glass-tile text-foreground/80 hover:text-foreground transition-colors inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
                 <path d="M12 2l2.4 7.2h7.6l-6.2 4.5 2.4 7.3-6.2-4.5-6.2 4.5 2.4-7.3-6.2-4.5h7.6z" />
               </svg>
-              {insightsMut.isPending ? "Analyzing…" : insights ? "Regenerate insights" : "AI insights"}
+              {insightsMut.isPending
+                ? "Analyzing…"
+                : insights
+                  ? "Regenerate insights"
+                  : "AI insights"}
             </button>
             <button
               onClick={handleExportPdf}
               disabled={pdfBusy || !view}
               className="px-3 py-1.5 rounded-full text-[11px] font-bold tracking-wider uppercase bg-white text-black inline-flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed shadow-[0_4px_20px_oklch(1_0_0_/_0.15)]"
             >
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <svg
+                width="11"
+                height="11"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+              >
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />
               </svg>
               {pdfBusy ? "Building PDF…" : "Export PDF"}
@@ -477,7 +485,9 @@ function MonthlyContent() {
                   ) : (
                     allProjectNames.map((n) => {
                       const active = filterProjects.includes(n);
-                      const proj = data.projects.find((p) => p.name === n) ?? data.previous?.projects.find((p) => p.name === n);
+                      const proj =
+                        data.projects.find((p) => p.name === n) ??
+                        data.previous?.projects.find((p) => p.name === n);
                       const color = resolveColor(proj?.color);
                       return (
                         <button
@@ -493,7 +503,10 @@ function MonthlyContent() {
                               : "px-2.5 py-1 rounded-full text-[11px] font-medium glass-tile text-foreground/70 hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                           }
                         >
-                          <span className="size-1.5 rounded-full" style={{ backgroundColor: color }} />
+                          <span
+                            className="size-1.5 rounded-full"
+                            style={{ backgroundColor: color }}
+                          />
                           {n}
                         </button>
                       );
@@ -503,11 +516,10 @@ function MonthlyContent() {
               </div>
               {filterCount > 0 && (
                 <p className="text-[11px] text-foreground/50">
-                  Showing data for{" "}
-                  {filterPersons.length > 0 && `${filterPersons.length} person(s)`}
+                  Showing data for {filterPersons.length > 0 && `${filterPersons.length} person(s)`}
                   {filterPersons.length > 0 && filterProjects.length > 0 && " · "}
-                  {filterProjects.length > 0 && `${filterProjects.length} project(s)`}
-                  . Tasks count hidden because totals are recomputed from aggregated buckets.
+                  {filterProjects.length > 0 && `${filterProjects.length} project(s)`}. Tasks count
+                  hidden because totals are recomputed from aggregated buckets.
                 </p>
               )}
             </div>
@@ -681,9 +693,15 @@ function MonthlyContent() {
                             total: p.total,
                           }))}
                           weeks={view.weeks}
-                          weekTotals={view.weekTotals.map((w) => ({ key: w.key, total: w.manHours }))}
+                          weekTotals={view.weekTotals.map((w) => ({
+                            key: w.key,
+                            total: w.manHours,
+                          }))}
                           grandTotal={view.grandTotals.manHours}
-                          previousRows={view.previous?.persons.map((p) => ({ key: p.name, total: p.total }))}
+                          previousRows={view.previous?.persons.map((p) => ({
+                            key: p.name,
+                            total: p.total,
+                          }))}
                           showWowDelta
                           capacityHoursPerWeek={(view as any).normalHoursPerWeek}
                         />
@@ -712,9 +730,15 @@ function MonthlyContent() {
                             total: p.total,
                           }))}
                           weeks={view.weeks}
-                          weekTotals={view.weekTotals.map((w) => ({ key: w.key, total: w.wallClock }))}
+                          weekTotals={view.weekTotals.map((w) => ({
+                            key: w.key,
+                            total: w.wallClock,
+                          }))}
                           grandTotal={view.grandTotals.wallClock}
-                          previousRows={view.previous?.projects.map((p) => ({ key: p.name, total: p.total }))}
+                          previousRows={view.previous?.projects.map((p) => ({
+                            key: p.name,
+                            total: p.total,
+                          }))}
                           showWowDelta
                         />
                       </>
@@ -755,7 +779,8 @@ function KpiCard({
   // Parse the numeric portion of `value` for delta computation.
   // We accept "133.7h", "5", etc.
   const currentNum = Number.parseFloat(value.replace(/[^\d.-]/g, ""));
-  const hasDelta = previous !== undefined && Number.isFinite(currentNum) && Number.isFinite(previous);
+  const hasDelta =
+    previous !== undefined && Number.isFinite(currentNum) && Number.isFinite(previous);
   let deltaPct: number | null = null;
   let deltaDir: "up" | "down" | "flat" = "flat";
   if (hasDelta) {
@@ -825,10 +850,7 @@ function HoursTooltip({ active, payload, label }: any) {
         {visible.map((p: any) => (
           <li key={p.dataKey} className="flex items-center justify-between gap-3">
             <span className="flex items-center gap-1.5 min-w-0">
-              <span
-                className="size-2 rounded-full shrink-0"
-                style={{ backgroundColor: p.color }}
-              />
+              <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
               <span className="text-foreground/85 truncate max-w-[120px]">{p.name}</span>
             </span>
             <span className="font-mono tabular-nums font-semibold text-foreground shrink-0">
@@ -1107,10 +1129,18 @@ function ProjectTrendChart({
   previousProjects,
 }: {
   weeks: Array<{ key: string; label: string }>;
-  projects: Array<{ name: string; color: string | null; byWeek: Record<string, number>; total: number }>;
-  previousProjects:
-    | Array<{ name: string; color: string | null; byWeek: Record<string, number>; total: number }>
-    | null;
+  projects: Array<{
+    name: string;
+    color: string | null;
+    byWeek: Record<string, number>;
+    total: number;
+  }>;
+  previousProjects: Array<{
+    name: string;
+    color: string | null;
+    byWeek: Record<string, number>;
+    total: number;
+  }> | null;
 }) {
   // Show all projects (they're already sorted by total desc); cap at 8 for readability.
   const TOP_N = 8;
@@ -1251,7 +1281,13 @@ function WeeklyMatrix({
   title: string;
   subtitle: string;
   leftHeader: string;
-  rows: Array<{ key: string; label: string; color: string | null; byWeek: Record<string, number>; total: number }>;
+  rows: Array<{
+    key: string;
+    label: string;
+    color: string | null;
+    byWeek: Record<string, number>;
+    total: number;
+  }>;
   weeks: Array<{ key: string; label: string; weekStart: string; weekEnd: string }>;
   weekTotals: Array<{ key: string; total: number }>;
   grandTotal: number;
@@ -1280,14 +1316,10 @@ function WeeklyMatrix({
     if (prev === undefined) return null; // first week, no baseline
     if (prev === 0 && current === 0) return null;
     if (prev === 0) {
-      return (
-        <span className="ml-1.5 text-[9px] font-mono font-bold text-emerald-300">↑</span>
-      );
+      return <span className="ml-1.5 text-[9px] font-mono font-bold text-emerald-300">↑</span>;
     }
     if (current === 0) {
-      return (
-        <span className="ml-1.5 text-[9px] font-mono font-bold text-rose-300">↓</span>
-      );
+      return <span className="ml-1.5 text-[9px] font-mono font-bold text-rose-300">↓</span>;
     }
     const diff = current - prev;
     const pct = (diff / prev) * 100;
@@ -1449,7 +1481,7 @@ function WeeklyMatrix({
                     <ul className="space-y-2">
                       {filled.map((e) => {
                         const pct = (e.h / maxH) * 100;
-                        const prev = e.idx > 0 ? r.byWeek[weeks[e.idx - 1].key] ?? 0 : undefined;
+                        const prev = e.idx > 0 ? (r.byWeek[weeks[e.idx - 1].key] ?? 0) : undefined;
                         const utilPct = capacityHoursPerWeek
                           ? (e.h / capacityHoursPerWeek) * 100
                           : null;
@@ -1533,7 +1565,7 @@ function WeeklyMatrix({
                           </td>
                           {weeks.map((w, wi) => {
                             const h = r.byWeek[w.key] ?? 0;
-                            const prev = wi > 0 ? r.byWeek[weeks[wi - 1].key] ?? 0 : undefined;
+                            const prev = wi > 0 ? (r.byWeek[weeks[wi - 1].key] ?? 0) : undefined;
                             return (
                               <td
                                 key={w.key}

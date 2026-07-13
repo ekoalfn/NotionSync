@@ -20,7 +20,15 @@ import {
   listRelationTargetPages,
 } from "@/lib/notion.functions";
 import type { NotionTreeNode } from "@/lib/notion.functions";
-import { AI_PROVIDERS, getAiConfig, setAiConfig, listAiModels, getCapacityConfig, setCapacityConfig, type AiProviderId } from "@/lib/settings.functions";
+import {
+  AI_PROVIDERS,
+  getAiConfig,
+  setAiConfig,
+  listAiModels,
+  getCapacityConfig,
+  setCapacityConfig,
+  type AiProviderId,
+} from "@/lib/settings.functions";
 import { useEffect } from "react";
 import { Pager, usePager } from "@/components/Pager";
 
@@ -80,14 +88,13 @@ function TreeView({
               >
                 {isOpen ? "▾" : "▸"}
               </button>
-              <span className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${n.type === "database" ? "bg-foreground/15 text-foreground/80" : "bg-foreground/5 text-foreground/40"}`}>
+              <span
+                className={`text-[10px] font-mono uppercase px-1.5 py-0.5 rounded ${n.type === "database" ? "bg-foreground/15 text-foreground/80" : "bg-foreground/5 text-foreground/40"}`}
+              >
                 {n.type === "database" ? "DB" : "PG"}
               </span>
               {n.type === "database" ? (
-                <button
-                  onClick={() => onPick(n)}
-                  className="text-left hover:underline font-medium"
-                >
+                <button onClick={() => onPick(n)} className="text-left hover:underline font-medium">
                   {n.title}
                 </button>
               ) : (
@@ -97,7 +104,13 @@ function TreeView({
             </div>
             {hasChildren && isOpen && (
               <div className="mt-1">
-                <TreeView nodes={n.children} expanded={expanded} onToggle={onToggle} onPick={onPick} depth={depth + 1} />
+                <TreeView
+                  nodes={n.children}
+                  expanded={expanded}
+                  onToggle={onToggle}
+                  onPick={onPick}
+                  depth={depth + 1}
+                />
               </div>
             )}
           </li>
@@ -150,8 +163,16 @@ function SettingsPage() {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const search = useQuery({ queryKey: ["notion-search"], queryFn: () => searchFn(), enabled: false });
-  const tree = useQuery({ queryKey: ["notion-tree"], queryFn: () => searchTreeFn(), enabled: false });
+  const search = useQuery({
+    queryKey: ["notion-search"],
+    queryFn: () => searchFn(),
+    enabled: false,
+  });
+  const tree = useQuery({
+    queryKey: ["notion-tree"],
+    queryFn: () => searchTreeFn(),
+    enabled: false,
+  });
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setExpanded((e) => ({ ...e, [id]: !e[id] }));
 
@@ -221,7 +242,8 @@ function SettingsPage() {
     },
   });
   const saveRelSrc = useMutation({
-    mutationFn: (v: { task_database_id: string; relation_property: string }) => saveRelSrcFn({ data: v }),
+    mutationFn: (v: { task_database_id: string; relation_property: string }) =>
+      saveRelSrcFn({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["relation-source"] });
       qc.invalidateQueries({ queryKey: ["relation-pages"] });
@@ -303,10 +325,14 @@ function SettingsPage() {
   const saveCapacity = useServerFn(setCapacityConfig);
   const capQuery = useQuery({ queryKey: ["capacity-config"], queryFn: () => fetchCapacity() });
   const [normalHours, setNormalHours] = useState<string>("42");
+  const [workdays, setWorkdays] = useState<string>("5");
   const [capSaved, setCapSaved] = useState(false);
   useEffect(() => {
     if (capQuery.data?.normalHoursPerWeek) {
       setNormalHours(String(capQuery.data.normalHoursPerWeek));
+    }
+    if (capQuery.data?.workdaysPerWeek) {
+      setWorkdays(String(capQuery.data.workdaysPerWeek));
     }
   }, [capQuery.data]);
   const updateCapacity = useMutation({
@@ -315,7 +341,11 @@ function SettingsPage() {
       if (!Number.isFinite(n) || n <= 0 || n > 168) {
         throw new Error("Jam normal harus angka antara 1 dan 168.");
       }
-      return saveCapacity({ data: { normalHoursPerWeek: n } });
+      const w = Number(workdays);
+      if (!Number.isInteger(w) || w < 1 || w > 7) {
+        throw new Error("Hari kerja harus angka bulat antara 1 dan 7.");
+      }
+      return saveCapacity({ data: { normalHoursPerWeek: n, workdaysPerWeek: w } });
     },
     onSuccess: () => {
       setCapSaved(true);
@@ -338,7 +368,8 @@ function SettingsPage() {
   const [liveModels, setLiveModels] = useState<string[] | null>(null);
   const [modelsError, setModelsError] = useState<string | null>(null);
   const loadModels = useMutation({
-    mutationFn: () => fetchModels({ data: { provider: aiProvider, baseUrl: aiBaseUrl, apiKey: aiApiKey } }),
+    mutationFn: () =>
+      fetchModels({ data: { provider: aiProvider, baseUrl: aiBaseUrl, apiKey: aiApiKey } }),
     onSuccess: (r) => {
       setLiveModels(r.models);
       setModelsError(null);
@@ -362,7 +393,9 @@ function SettingsPage() {
     <>
       <header className="mb-8">
         <h1 className="text-3xl font-display font-extrabold tracking-tight">Settings</h1>
-        <p className="text-foreground/50 text-sm">Manage which Notion databases sync as projects.</p>
+        <p className="text-foreground/50 text-sm">
+          Manage which Notion databases sync as projects.
+        </p>
       </header>
 
       <section className="glass rounded-[2rem] p-6 mb-6">
@@ -380,12 +413,18 @@ function SettingsPage() {
         </div>
         <p className="text-sm text-foreground/60 mb-4">
           Buat <strong>Internal Integration</strong> di{" "}
-          <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" className="underline">
+          <a
+            href="https://www.notion.so/my-integrations"
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+          >
             notion.so/my-integrations
           </a>
-          , copy <em>Internal Integration Secret</em> (mulai dengan <code>ntn_…</code> atau <code>secret_…</code>),
-          lalu share database yang dipakai ke integration tersebut. Token disimpan di database aplikasi —
-          ganti akun Notion = paste token baru di sini, langsung aktif tanpa restart server.
+          , copy <em>Internal Integration Secret</em> (mulai dengan <code>ntn_…</code> atau{" "}
+          <code>secret_…</code>), lalu share database yang dipakai ke integration tersebut. Token
+          disimpan di database aplikasi — ganti akun Notion = paste token baru di sini, langsung
+          aktif tanpa restart server.
         </p>
         {tokenStatus.data?.configured && (
           <p className="text-xs font-mono text-foreground/50 mb-3">
@@ -429,8 +468,8 @@ function SettingsPage() {
         </div>
         {tokenMsg && <p className="text-xs text-foreground/60 mt-3">{tokenMsg}</p>}
         <p className="text-[11px] text-foreground/40 mt-3">
-          Tip VPS: set env <code>NOTION_INTEGRATION_TOKEN</code> di server sebagai fallback untuk first-boot.
-          Token di Settings selalu mengoverride env.
+          Tip VPS: set env <code>NOTION_INTEGRATION_TOKEN</code> di server sebagai fallback untuk
+          first-boot. Token di Settings selalu mengoverride env.
         </p>
       </section>
 
@@ -448,7 +487,9 @@ function SettingsPage() {
           )}
         </div>
         <p className="text-sm text-foreground/60 mb-3">
-          Pilih database task (mis. <code>Daily Project</code>) dan relation property yang point ke daftar project (mis. <code>Project</code> → Production). Disimpan sekali, lalu tinggal Add Project tanpa isi ulang.
+          Pilih database task (mis. <code>Daily Project</code>) dan relation property yang point ke
+          daftar project (mis. <code>Project</code> → Production). Disimpan sekali, lalu tinggal Add
+          Project tanpa isi ulang.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
           <input
@@ -476,7 +517,9 @@ function SettingsPage() {
         {(relationProps.length > 0 || relSrc.data?.configured) && (
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3 mt-3">
             <label className="md:col-span-7 flex flex-col gap-1">
-              <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/40">Relation property</span>
+              <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/40">
+                Relation property
+              </span>
               <select
                 value={relationProp}
                 onChange={(e) => setRelationProp(e.target.value)}
@@ -486,7 +529,9 @@ function SettingsPage() {
                   <option value={relationProp}>{relationProp} (saved)</option>
                 )}
                 {relationProps.map((p) => (
-                  <option key={p} value={p}>{p}</option>
+                  <option key={p} value={p}>
+                    {p}
+                  </option>
                 ))}
               </select>
             </label>
@@ -505,10 +550,18 @@ function SettingsPage() {
           </div>
         )}
         {inspectErr && <p className="text-xs text-foreground/60 mt-2">{inspectErr}</p>}
-        {saveRelSrc.error && <p className="text-xs text-foreground/60 mt-2">{(saveRelSrc.error as Error).message}</p>}
+        {saveRelSrc.error && (
+          <p className="text-xs text-foreground/60 mt-2">{(saveRelSrc.error as Error).message}</p>
+        )}
         {relSrc.data?.configured && (
           <p className="text-[11px] font-mono text-foreground/40 mt-3">
-            task DB <span className="text-foreground/70">{relSrc.data.task_database_id.slice(0, 8)}…</span> · prop <span className="text-foreground/70">{relSrc.data.relation_property}</span> · target DS <span className="text-foreground/70">{relSrc.data.related_data_source_id.slice(0, 8)}…</span>
+            task DB{" "}
+            <span className="text-foreground/70">{relSrc.data.task_database_id.slice(0, 8)}…</span>{" "}
+            · prop <span className="text-foreground/70">{relSrc.data.relation_property}</span> ·
+            target DS{" "}
+            <span className="text-foreground/70">
+              {relSrc.data.related_data_source_id.slice(0, 8)}…
+            </span>
           </p>
         )}
       </section>
@@ -553,8 +606,12 @@ function SettingsPage() {
         </div>
         {unassignedErr && <p className="text-xs text-foreground/60 mb-3">{unassignedErr}</p>}
         <details>
-          <summary className="text-xs text-foreground/60 cursor-pointer hover:text-foreground">Advanced: paste URL database/page manual</summary>
-          <p className="text-[11px] text-foreground/50 mt-2 mb-3">Untuk database mode (1 DB = 1 project) atau jika belum konfigurasi source.</p>
+          <summary className="text-xs text-foreground/60 cursor-pointer hover:text-foreground">
+            Advanced: paste URL database/page manual
+          </summary>
+          <p className="text-[11px] text-foreground/50 mt-2 mb-3">
+            Untuk database mode (1 DB = 1 project) atau jika belum konfigurasi source.
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
             <input
               value={dbInput}
@@ -629,7 +686,9 @@ function SettingsPage() {
                   className="text-left text-sm px-3 py-2 bg-white/5 border border-white/10 rounded-lg backdrop-blur hover:border-foreground/30"
                 >
                   <span className="font-medium">{db.title}</span>
-                  <span className="ml-2 text-xs font-mono text-foreground/40">{db.id.slice(0, 8)}…</span>
+                  <span className="ml-2 text-xs font-mono text-foreground/40">
+                    {db.id.slice(0, 8)}…
+                  </span>
                 </button>
               ))}
               <Pager
@@ -644,7 +703,8 @@ function SettingsPage() {
           {tree.data && tree.data.length > 0 && (
             <div className="mt-3 border border-white/10 rounded-xl p-3 bg-white/5">
               <p className="text-[11px] text-foreground/50 mb-2">
-                Klik <span className="font-mono">database</span> untuk pakai sebagai project. Page hanya untuk navigasi.
+                Klik <span className="font-mono">database</span> untuk pakai sebagai project. Page
+                hanya untuk navigasi.
               </p>
               <TreeView
                 nodes={treePager.pageItems}
@@ -673,47 +733,58 @@ function SettingsPage() {
           <p className="text-sm text-foreground/50">None yet.</p>
         ) : (
           <>
-          <ul className="divide-y divide-border">
-            {trackedPager.pageItems.map((p) => (
-              <li key={p.id} className="flex items-center justify-between py-3">
-                <div className="flex items-center gap-3">
-                  <div className="size-3 rounded-full" style={{ backgroundColor: resolveColor(p.color) }} />
-                  <div>
-                    <p className="font-medium flex items-center gap-2">
-                      {p.name}
-                      <span className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 bg-foreground/10 rounded">
-                        {p.source_kind === "relation" ? "relation" : p.source_kind === "unassigned" ? "no relation" : "database"}
-                      </span>
-                    </p>
-                    {p.source_kind === "relation" ? (
-                      <p className="text-xs font-mono text-foreground/40">
-                        task DB {String(p.task_database_id).slice(0, 8)}… · {p.relation_property} → page {String(p.relation_page_id).slice(0, 8)}…
+            <ul className="divide-y divide-border">
+              {trackedPager.pageItems.map((p) => (
+                <li key={p.id} className="flex items-center justify-between py-3">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="size-3 rounded-full"
+                      style={{ backgroundColor: resolveColor(p.color) }}
+                    />
+                    <div>
+                      <p className="font-medium flex items-center gap-2">
+                        {p.name}
+                        <span className="text-[10px] font-mono uppercase tracking-widest px-1.5 py-0.5 bg-foreground/10 rounded">
+                          {p.source_kind === "relation"
+                            ? "relation"
+                            : p.source_kind === "unassigned"
+                              ? "no relation"
+                              : "database"}
+                        </span>
                       </p>
-                    ) : p.source_kind === "unassigned" ? (
-                      <p className="text-xs font-mono text-foreground/40">
-                        task DB {String(p.task_database_id).slice(0, 8)}… · {p.relation_property} kosong
-                      </p>
-                    ) : (
-                      <p className="text-xs font-mono text-foreground/40">{p.notion_database_id}</p>
-                    )}
+                      {p.source_kind === "relation" ? (
+                        <p className="text-xs font-mono text-foreground/40">
+                          task DB {String(p.task_database_id).slice(0, 8)}… · {p.relation_property}{" "}
+                          → page {String(p.relation_page_id).slice(0, 8)}…
+                        </p>
+                      ) : p.source_kind === "unassigned" ? (
+                        <p className="text-xs font-mono text-foreground/40">
+                          task DB {String(p.task_database_id).slice(0, 8)}… · {p.relation_property}{" "}
+                          kosong
+                        </p>
+                      ) : (
+                        <p className="text-xs font-mono text-foreground/40">
+                          {p.notion_database_id}
+                        </p>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <button
-                  onClick={() => del.mutate(p.id)}
-                  className="text-xs text-foreground/60 hover:underline"
-                >
-                  Remove
-                </button>
-              </li>
-            ))}
-          </ul>
-          <Pager
-            page={trackedPager.page}
-            totalPages={trackedPager.totalPages}
-            onChange={trackedPager.setPage}
-            total={trackedPager.total}
-            pageSize={trackedPager.pageSize}
-          />
+                  <button
+                    onClick={() => del.mutate(p.id)}
+                    className="text-xs text-foreground/60 hover:underline"
+                  >
+                    Remove
+                  </button>
+                </li>
+              ))}
+            </ul>
+            <Pager
+              page={trackedPager.page}
+              totalPages={trackedPager.totalPages}
+              onChange={trackedPager.setPage}
+              total={trackedPager.total}
+              pageSize={trackedPager.pageSize}
+            />
           </>
         )}
       </section>
@@ -721,7 +792,8 @@ function SettingsPage() {
       <section className="mt-6 glass rounded-[2rem] p-6">
         <h2 className="font-display font-bold text-lg mb-2">Real-time sync</h2>
         <p className="text-sm text-foreground/60 mb-3">
-          To enable instant updates when Notion changes, register this webhook URL in your Notion integration:
+          To enable instant updates when Notion changes, register this webhook URL in your Notion
+          integration:
         </p>
         <code className="block p-3 bg-white/5 border border-white/10 rounded-xl backdrop-blur text-xs font-mono break-all">
           {typeof window !== "undefined" ? window.location.origin : ""}/api/public/notion-webhook
@@ -735,18 +807,23 @@ function SettingsPage() {
         <h2 className="font-display font-bold text-lg mb-2">AI Provider</h2>
         <p className="text-sm text-foreground/60 mb-4">
           Pilih provider AI dan model untuk generate weekly summary, improvements, dan critique.
-          Mendukung OpenAI-compatible (OpenAI/OpenRouter/Groq) dan Anthropic-compatible (Anthropic + custom).
+          Mendukung OpenAI-compatible (OpenAI/OpenRouter/Groq) dan Anthropic-compatible (Anthropic +
+          custom).
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/40">Provider</span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/40">
+              Provider
+            </span>
             <select
               value={aiProvider}
               onChange={(e) => applyPreset(e.target.value as AiProviderId)}
               className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl backdrop-blur text-sm"
             >
               {AI_PROVIDERS.map((p) => (
-                <option key={p.id} value={p.id}>{p.label}</option>
+                <option key={p.id} value={p.id}>
+                  {p.label}
+                </option>
               ))}
             </select>
           </label>
@@ -773,7 +850,9 @@ function SettingsPage() {
                   <option value={aiModel}>{aiModel} (current)</option>
                 )}
                 {modelOptions.map((m) => (
-                  <option key={m} value={m}>{m}</option>
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
                 ))}
               </select>
             ) : (
@@ -788,7 +867,9 @@ function SettingsPage() {
           </label>
 
           <label className="flex flex-col gap-1 md:col-span-2">
-            <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/40">Base URL</span>
+            <span className="text-[10px] font-mono uppercase tracking-widest text-foreground/40">
+              Base URL
+            </span>
             <input
               value={aiBaseUrl}
               onChange={(e) => setAiBaseUrl(e.target.value)}
@@ -822,14 +903,16 @@ function SettingsPage() {
           </button>
           {aiSaved && <span className="text-xs text-foreground/60">Tersimpan ✓</span>}
           {updateConfig.error && (
-            <span className="text-xs text-foreground/60">{(updateConfig.error as Error).message}</span>
+            <span className="text-xs text-foreground/60">
+              {(updateConfig.error as Error).message}
+            </span>
           )}
         </div>
 
         <p className="text-xs text-foreground/40 mt-3">
-          API key disimpan di database project ini.
-          OpenAI-compatible → pakai <code>/chat/completions</code>.
-          Anthropic-compatible (incl. Custom) → pakai <code>/messages</code> dgn header <code>x-api-key</code> + <code>anthropic-version</code>.
+          API key disimpan di database project ini. OpenAI-compatible → pakai{" "}
+          <code>/chat/completions</code>. Anthropic-compatible (incl. Custom) → pakai{" "}
+          <code>/messages</code> dgn header <code>x-api-key</code> + <code>anthropic-version</code>.
         </p>
       </section>
 
@@ -837,8 +920,8 @@ function SettingsPage() {
       <section className="glass rounded-[2rem] p-6 md:p-8 mt-6 md:mt-8">
         <h2 className="font-display font-semibold text-lg md:text-xl mb-1">Capacity</h2>
         <p className="text-xs text-foreground/50 mb-5">
-          Jam kerja "normal" per orang per minggu. Dipakai Monthly Report untuk hitung
-          utilization % (mis. <code>14.5h / 42h = 34%</code>).
+          Jam kerja "normal" per orang per minggu. Dipakai Monthly Report untuk hitung utilization %
+          (mis. <code>14.5h / 42h = 34%</code>).
         </p>
         <label className="flex flex-col gap-1 max-w-[260px]">
           <span className="text-[10px] font-mono uppercase tracking-wider text-foreground/40">
@@ -857,6 +940,23 @@ function SettingsPage() {
             Default 42 (5 hari × 8.4 jam). Bisa di-set 35, 40, 45, dll.
           </span>
         </label>
+        <label className="flex flex-col gap-1 max-w-[260px] mt-4">
+          <span className="text-[10px] font-mono uppercase tracking-wider text-foreground/40">
+            Hari kerja per minggu
+          </span>
+          <input
+            type="number"
+            step="1"
+            min={1}
+            max={7}
+            value={workdays}
+            onChange={(e) => setWorkdays(e.target.value)}
+            className="px-3 py-2 rounded-xl glass-tile text-sm bg-transparent focus:outline-none focus:ring-1 focus:ring-foreground/20 text-foreground/90"
+          />
+          <span className="text-[10px] text-foreground/40 mt-1">
+            Default 5. Pembagi target harian otomatis (target mingguan ÷ hari kerja).
+          </span>
+        </label>
         <div className="flex items-center gap-3 mt-4">
           <button
             disabled={updateCapacity.isPending}
@@ -867,132 +967,141 @@ function SettingsPage() {
           </button>
           {capSaved && <span className="text-xs text-foreground/60">Tersimpan ✓</span>}
           {updateCapacity.error && (
-            <span className="text-xs text-rose-300">
-              {(updateCapacity.error as Error).message}
-            </span>
+            <span className="text-xs text-rose-300">{(updateCapacity.error as Error).message}</span>
           )}
         </div>
       </section>
 
-      {addOpen && typeof document !== "undefined" && createPortal(
-        <div
-          className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setAddOpen(false)}
-        >
+      {addOpen &&
+        typeof document !== "undefined" &&
+        createPortal(
           <div
-            className="glass rounded-[2rem] p-6 max-w-2xl w-full max-h-[80vh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 z-[1000] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+            onClick={() => setAddOpen(false)}
           >
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-display font-bold text-lg">Pilih project (relation target)</h3>
-              <button
-                onClick={() => setAddOpen(false)}
-                className="text-foreground/60 hover:text-foreground text-xl leading-none"
-              >
-                ×
-              </button>
-            </div>
-            <p className="text-xs text-foreground/50 mb-3">
-              Dari data source target relation. Klik salah satu untuk pilih.
-            </p>
-            <input
-              value={pageSearch}
-              onChange={(e) => setPageSearch(e.target.value)}
-              placeholder="Cari…"
-              className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm mb-3"
-            />
-            <div className="overflow-y-auto flex-1 border border-white/10 rounded-xl">
-              {relPages.isLoading && <p className="p-3 text-sm text-foreground/50">Loading…</p>}
-              {relPages.error && (
-                <p className="p-3 text-sm text-foreground/60">{(relPages.error as Error).message}</p>
-              )}
-              {relPages.data && filteredPages.length === 0 && (
-                <p className="p-3 text-sm text-foreground/50">Kosong.</p>
-              )}
-              <ul className="divide-y divide-border">
-                {filteredPages.map((p: any) => {
-                  const taken = trackedRelationIds.has(String(p.id).replace(/-/g, ""));
-                  const isPicked = pickedPage?.id === p.id;
-                  return (
-                    <li key={p.id}>
-                      <button
-                        disabled={taken}
-                        onClick={() => {
-                          setPickedPage({ id: p.id, title: p.title });
-                          setOverrideName(p.title);
-                        }}
-                        className={`w-full text-left px-3 py-2 text-sm hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-between ${isPicked ? "bg-foreground/10" : ""}`}
-                      >
-                        <span>
-                          <span className="font-medium">{p.title}</span>
-                          <span className="ml-2 text-[10px] font-mono text-foreground/40">{String(p.id).slice(0, 8)}…</span>
-                        </span>
-                        {taken && <span className="text-[10px] font-mono uppercase text-foreground/40">tracked</span>}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-            {pickedPage && (
-              <div className="mt-3 pt-3 border-t border-border">
-                <p className="text-xs text-foreground/50 mb-2">
-                  Picked: <span className="text-foreground/80 font-medium">{pickedPage.title}</span>
-                </p>
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
-                  <input
-                    value={overrideName}
-                    onChange={(e) => setOverrideName(e.target.value)}
-                    placeholder="Nama project"
-                    className="md:col-span-7 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm"
-                  />
-                  <div className="md:col-span-3 flex gap-1 items-center flex-wrap px-1">
-                    {PRESET_COLORS.map((c) => (
-                      <button
-                        key={c.name}
-                        onClick={() => setPickedColor(c.hex)}
-                        style={{ backgroundColor: c.hex }}
-                        className={`size-5 rounded-full ${pickedColor === c.hex ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" : "opacity-70 hover:opacity-100"}`}
-                        aria-label={c.name}
-                        title={c.name}
-                      />
-                    ))}
-                    <input
-                      type="color"
-                      value={resolveColor(pickedColor)}
-                      onChange={(e) => setPickedColor(e.target.value)}
-                      className="size-5 rounded-full bg-transparent border border-white/20 cursor-pointer"
-                      title="Custom"
-                    />
-                  </div>
-                  <button
-                    disabled={add.isPending || !overrideName.trim()}
-                    onClick={() => {
-                      add.mutate(
-                        {
-                          id: pickedPage.id,
-                          name: overrideName.trim(),
-                          color: pickedColor,
-                        },
-                        {
-                          onSuccess: () => {
-                            setAddOpen(false);
-                          },
-                        },
-                      );
-                    }}
-                    className="md:col-span-2 px-3 py-2 bg-foreground text-background rounded-lg text-sm font-bold disabled:opacity-50"
-                  >
-                    {add.isPending ? "…" : "Add"}
-                  </button>
-                </div>
-                {error && <p className="text-xs text-foreground/60 mt-2">{error}</p>}
+            <div
+              className="glass rounded-[2rem] p-6 max-w-2xl w-full max-h-[80vh] flex flex-col"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="font-display font-bold text-lg">Pilih project (relation target)</h3>
+                <button
+                  onClick={() => setAddOpen(false)}
+                  className="text-foreground/60 hover:text-foreground text-xl leading-none"
+                >
+                  ×
+                </button>
               </div>
-            )}
-          </div>
-        </div>,
-        document.body,
-      )}
+              <p className="text-xs text-foreground/50 mb-3">
+                Dari data source target relation. Klik salah satu untuk pilih.
+              </p>
+              <input
+                value={pageSearch}
+                onChange={(e) => setPageSearch(e.target.value)}
+                placeholder="Cari…"
+                className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm mb-3"
+              />
+              <div className="overflow-y-auto flex-1 border border-white/10 rounded-xl">
+                {relPages.isLoading && <p className="p-3 text-sm text-foreground/50">Loading…</p>}
+                {relPages.error && (
+                  <p className="p-3 text-sm text-foreground/60">
+                    {(relPages.error as Error).message}
+                  </p>
+                )}
+                {relPages.data && filteredPages.length === 0 && (
+                  <p className="p-3 text-sm text-foreground/50">Kosong.</p>
+                )}
+                <ul className="divide-y divide-border">
+                  {filteredPages.map((p: any) => {
+                    const taken = trackedRelationIds.has(String(p.id).replace(/-/g, ""));
+                    const isPicked = pickedPage?.id === p.id;
+                    return (
+                      <li key={p.id}>
+                        <button
+                          disabled={taken}
+                          onClick={() => {
+                            setPickedPage({ id: p.id, title: p.title });
+                            setOverrideName(p.title);
+                          }}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-white/5 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-between ${isPicked ? "bg-foreground/10" : ""}`}
+                        >
+                          <span>
+                            <span className="font-medium">{p.title}</span>
+                            <span className="ml-2 text-[10px] font-mono text-foreground/40">
+                              {String(p.id).slice(0, 8)}…
+                            </span>
+                          </span>
+                          {taken && (
+                            <span className="text-[10px] font-mono uppercase text-foreground/40">
+                              tracked
+                            </span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+              {pickedPage && (
+                <div className="mt-3 pt-3 border-t border-border">
+                  <p className="text-xs text-foreground/50 mb-2">
+                    Picked:{" "}
+                    <span className="text-foreground/80 font-medium">{pickedPage.title}</span>
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+                    <input
+                      value={overrideName}
+                      onChange={(e) => setOverrideName(e.target.value)}
+                      placeholder="Nama project"
+                      className="md:col-span-7 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm"
+                    />
+                    <div className="md:col-span-3 flex gap-1 items-center flex-wrap px-1">
+                      {PRESET_COLORS.map((c) => (
+                        <button
+                          key={c.name}
+                          onClick={() => setPickedColor(c.hex)}
+                          style={{ backgroundColor: c.hex }}
+                          className={`size-5 rounded-full ${pickedColor === c.hex ? "ring-2 ring-foreground ring-offset-2 ring-offset-background" : "opacity-70 hover:opacity-100"}`}
+                          aria-label={c.name}
+                          title={c.name}
+                        />
+                      ))}
+                      <input
+                        type="color"
+                        value={resolveColor(pickedColor)}
+                        onChange={(e) => setPickedColor(e.target.value)}
+                        className="size-5 rounded-full bg-transparent border border-white/20 cursor-pointer"
+                        title="Custom"
+                      />
+                    </div>
+                    <button
+                      disabled={add.isPending || !overrideName.trim()}
+                      onClick={() => {
+                        add.mutate(
+                          {
+                            id: pickedPage.id,
+                            name: overrideName.trim(),
+                            color: pickedColor,
+                          },
+                          {
+                            onSuccess: () => {
+                              setAddOpen(false);
+                            },
+                          },
+                        );
+                      }}
+                      className="md:col-span-2 px-3 py-2 bg-foreground text-background rounded-lg text-sm font-bold disabled:opacity-50"
+                    >
+                      {add.isPending ? "…" : "Add"}
+                    </button>
+                  </div>
+                  {error && <p className="text-xs text-foreground/60 mt-2">{error}</p>}
+                </div>
+              )}
+            </div>
+          </div>,
+          document.body,
+        )}
     </>
   );
 }

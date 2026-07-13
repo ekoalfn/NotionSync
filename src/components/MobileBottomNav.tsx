@@ -20,8 +20,15 @@ type IconProps = { className?: string };
 
 const Icons = {
   Dashboard: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-         strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <rect x="3" y="3" width="7" height="9" rx="1.5" />
       <rect x="14" y="3" width="7" height="5" rx="1.5" />
       <rect x="14" y="12" width="7" height="9" rx="1.5" />
@@ -29,14 +36,28 @@ const Icons = {
     </svg>
   ),
   Projects: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-         strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z" />
     </svg>
   ),
   Team: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-         strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <circle cx="9" cy="8" r="3.2" />
       <path d="M3.5 20c.6-3.1 2.9-5 5.5-5s4.9 1.9 5.5 5" />
       <circle cx="17" cy="9.5" r="2.4" />
@@ -44,16 +65,30 @@ const Icons = {
     </svg>
   ),
   AI: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-         strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.5 5.5l1.8 1.8M16.7 16.7l1.8 1.8M5.5 18.5l1.8-1.8M16.7 7.3l1.8-1.8" />
       <circle cx="12" cy="12" r="4.5" />
     </svg>
   ),
   // Monthly: stylised calendar with a small bar-chart inside to imply "report"
   Monthly: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-         strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <rect x="3" y="5" width="18" height="16" rx="2" />
       <path d="M3 9h18" />
       <path d="M8 3v4M16 3v4" />
@@ -61,8 +96,15 @@ const Icons = {
     </svg>
   ),
   Settings: ({ className }: IconProps) => (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-         strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+    >
       <circle cx="12" cy="12" r="3" />
       <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
     </svg>
@@ -73,7 +115,7 @@ const navItems = [
   { to: "/", label: "Home", Icon: Icons.Dashboard },
   { to: "/projects", label: "Projects", Icon: Icons.Projects },
   { to: "/team", label: "Team", Icon: Icons.Team },
-  { to: "/monthly", label: "Monthly", Icon: Icons.Monthly },
+  { to: "/report", label: "Report", Icon: Icons.Monthly },
   { to: "/settings", label: "Settings", Icon: Icons.Settings },
 ] as const;
 
@@ -88,7 +130,10 @@ export function MobileBottomNav() {
     select: (s) => s.resolvedLocation?.pathname ?? s.location.pathname,
   });
 
-  const activeIndex = Math.max(0, navItems.findIndex((n) => isActiveFor(n.to, pathname)));
+  const activeIndex = Math.max(
+    0,
+    navItems.findIndex((n) => isActiveFor(n.to, pathname)),
+  );
 
   // Refs to the tab DOM nodes so we can measure their layout and slide the
   // pill into the right position. We measure on mount, on route change, and
@@ -172,7 +217,9 @@ export function MobileBottomNav() {
             <Link
               key={to}
               to={to}
-              ref={(el) => { tabRefs.current[idx] = el; }}
+              ref={(el) => {
+                tabRefs.current[idx] = el;
+              }}
               aria-label={label}
               aria-current={active ? "page" : undefined}
               onClick={() => spawnRipple(idx)}
@@ -182,11 +229,7 @@ export function MobileBottomNav() {
                   animation). Rendered above the pill so it's visible on the
                   currently-active tab too. */}
               {rippleAt[idx] > 0 && (
-                <span
-                  key={rippleAt[idx]}
-                  aria-hidden
-                  className="liquid-ripple"
-                />
+                <span key={rippleAt[idx]} aria-hidden className="liquid-ripple" />
               )}
               <Icon
                 className={

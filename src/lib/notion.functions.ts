@@ -9,6 +9,8 @@ export interface ProjectWeekly {
   /** "unassigned" = Non-Project Activities bucket (no project relation). Drives Role/Context breakdown in reports. */
   sourceKind?: string;
   targetHoursPerWeek: number | null;
+  /** Manual per-day target. null = auto-derive (weekly / workdaysPerWeek). */
+  targetHoursPerDay: number | null;
   error?: string | null;
   /** Wall-clock hours: sum of unique task durations (each task counted once). */
   totalHours: number;
@@ -39,6 +41,8 @@ export interface ProjectWeekly {
 export interface WeeklyAggregate {
   weekStart: string;
   weekEnd: string;
+  /** Configured working days per week — divisor for auto daily targets. */
+  workdaysPerWeek: number;
   /** Wall-clock hours: sum of unique task durations across all projects (each task once). */
   totalHours: number;
   /** Man-hours: sum of every assignee's contribution across all projects. */
@@ -399,13 +403,22 @@ export const updateProjectTarget = createServerFn({ method: "POST" })
     z.object({
       id: z.string().uuid(),
       target_hours_per_week: z.number().min(0).max(1000).nullable(),
+      // Optional: only touch the daily column when explicitly provided, so a
+      // weekly-only save doesn't clobber a manual daily target. null = auto.
+      target_hours_per_day: z.number().min(0).max(24).nullable().optional(),
     }),
   )
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const patch: { target_hours_per_week: number | null; target_hours_per_day?: number | null } = {
+      target_hours_per_week: data.target_hours_per_week,
+    };
+    if (data.target_hours_per_day !== undefined) {
+      patch.target_hours_per_day = data.target_hours_per_day;
+    }
     const { error } = await supabaseAdmin
       .from("notion_projects")
-      .update({ target_hours_per_week: data.target_hours_per_week })
+      .update(patch)
       .eq("id", data.id);
     if (error) throw error;
     return { ok: true };
@@ -545,12 +558,21 @@ export const getWeeklyAggregate = createServerFn({ method: "POST" })
 
     const { data: projects, error } = await supabaseAdmin
       .from("notion_projects")
-      .select("id, notion_database_id, name, color, target_hours_per_week, source_kind, task_database_id, relation_property, relation_page_id");
+      .select("id, notion_database_id, name, color, target_hours_per_week, target_hours_per_day, source_kind, task_database_id, relation_property, relation_page_id");
     if (error) throw error;
+
+    const { data: workdaysRow } = await supabaseAdmin
+      .from("app_settings")
+      .select("value")
+      .eq("key", "workdays_per_week")
+      .maybeSingle();
+    const wRaw = workdaysRow?.value ? Number(workdaysRow.value) : NaN;
+    const workdaysPerWeek = Number.isFinite(wRaw) && wRaw >= 1 && wRaw <= 7 ? Math.round(wRaw) : 5;
 
     const result: WeeklyAggregate = {
       weekStart: range.start,
       weekEnd: range.end,
+      workdaysPerWeek,
       totalHours: 0,
       manHours: 0,
       tasksDone: 0,
@@ -669,6 +691,7 @@ export const getWeeklyAggregate = createServerFn({ method: "POST" })
         color: proj.color,
         sourceKind: (proj as any).source_kind ?? "database",
         targetHoursPerWeek: (proj as any).target_hours_per_week ?? null,
+        targetHoursPerDay: (proj as any).target_hours_per_day ?? null,
         error: queryError,
         totalHours: Number(projHours.toFixed(2)),
         manHours: Number(projManHours.toFixed(2)),

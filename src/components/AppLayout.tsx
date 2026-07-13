@@ -13,7 +13,7 @@ const navItems = [
   { to: "/", label: "Dashboard" },
   { to: "/projects", label: "Projects" },
   { to: "/team", label: "Team" },
-  { to: "/monthly", label: "Monthly" },
+  { to: "/report", label: "Report" },
   { to: "/ai-insights", label: "AI Insights" },
   { to: "/settings", label: "Settings" },
 ] as const;
@@ -119,7 +119,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <div className="size-9 rounded-2xl bg-background/40 shadow-[0_0_20px_var(--glass-inset)] flex items-center justify-center transition-transform group-hover:scale-110 overflow-hidden">
                 <img src="/logo.svg" alt="" aria-hidden className="size-7 object-contain" />
               </div>
-              <span className="font-display font-extrabold text-lg tracking-[0.18em]">NOWTRACK</span>
+              <span className="font-display font-extrabold text-lg tracking-[0.18em]">
+                NOWTRACK
+              </span>
             </Link>
             <button
               onClick={toggle}
@@ -127,9 +129,32 @@ export function AppLayout({ children }: { children: ReactNode }) {
               className="size-8 rounded-full glass-tile flex items-center justify-center text-foreground/70 hover:text-foreground transition-all hover:scale-110 active:scale-95"
             >
               {theme === "dark" ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="12" cy="12" r="4" />
+                  <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                </svg>
               ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                </svg>
               )}
             </button>
           </div>
@@ -159,7 +184,10 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </div>
             <div className="flex flex-col gap-1">
               {projects.length === 0 ? (
-                <Link to="/settings" className="text-xs text-foreground/50 hover:text-foreground transition-colors">
+                <Link
+                  to="/settings"
+                  className="text-xs text-foreground/50 hover:text-foreground transition-colors"
+                >
                   + Connect a Notion database
                 </Link>
               ) : (
@@ -167,8 +195,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   // Highlight current project when its detail page is active so users
                   // see where they are inside the projects/$projectId route.
                   const isActive =
-                    pathname === `/projects/${p.id}` ||
-                    pathname.startsWith(`/projects/${p.id}/`);
+                    pathname === `/projects/${p.id}` || pathname.startsWith(`/projects/${p.id}/`);
                   return (
                     <Link
                       key={p.id}
@@ -199,7 +226,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     <p className="text-xs font-medium truncate">
                       {(user.user_metadata?.display_name as string) || user.email}
                     </p>
-                    <p className="text-[10px] font-mono text-foreground/40 truncate">{user.email}</p>
+                    <p className="text-[10px] font-mono text-foreground/40 truncate">
+                      {user.email}
+                    </p>
                   </div>
                   <button
                     onClick={async () => {
@@ -233,7 +262,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
               <div className="size-8 rounded-xl bg-background/40 shadow-[0_0_18px_var(--glass-inset)] flex items-center justify-center shrink-0 overflow-hidden">
                 <img src="/logo.svg" alt="" aria-hidden className="size-6 object-contain" />
               </div>
-              <span className="font-display font-extrabold text-sm tracking-[0.18em] truncate">NOWTRACK</span>
+              <span className="font-display font-extrabold text-sm tracking-[0.18em] truncate">
+                NOWTRACK
+              </span>
             </Link>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
@@ -242,9 +273,32 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 className="size-9 rounded-full glass-tile flex items-center justify-center text-foreground/70 active:scale-90 transition-transform"
               >
                 {theme === "dark" ? (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+                  </svg>
                 ) : (
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                  </svg>
                 )}
               </button>
               {user ? (
@@ -258,7 +312,20 @@ export function AppLayout({ children }: { children: ReactNode }) {
                   aria-label="Sign out"
                   className="size-9 rounded-full glass-tile flex items-center justify-center text-foreground/70 active:scale-90 transition-transform"
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
                 </button>
               ) : (
                 <Link
