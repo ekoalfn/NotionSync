@@ -58,6 +58,37 @@ export function noteKey(iso: string, projectId: string) {
   return `${iso}|${projectId}`;
 }
 
+// Achievement tier for a day/project row. Rows with no target => "none".
+// ponytail: 70% near-cutoff hardcoded, make configurable if someone asks.
+export type DailyStatus = "none" | "far" | "near" | "met";
+export function dailyStatus(target: number | null, actual: number): DailyStatus {
+  if (target == null || target <= 0) return "none";
+  const r = actual / target;
+  if (r >= 1) return "met";
+  if (r >= 0.7) return "near";
+  return "far";
+}
+
+export const STATUS_LABEL: Record<DailyStatus, string> = {
+  none: "—",
+  far: "Jauh dari target",
+  near: "Hampir",
+  met: "Tercapai",
+};
+
+const ROW_BG: Record<DailyStatus, string> = {
+  none: "",
+  far: "bg-red-500/[0.08]",
+  near: "bg-amber-500/[0.08]",
+  met: "bg-emerald-500/[0.07]",
+};
+const STATUS_TEXT: Record<DailyStatus, string> = {
+  none: "text-foreground/40",
+  far: "text-red-300",
+  near: "text-amber-300",
+  met: "text-emerald-300",
+};
+
 // Shared by the on-screen table AND the PDF export so both stay in sync.
 // Shows at least Senin–Sabtu (6 days) even if the workdays divisor is 5.
 // `hidden` = projectIds to exclude (filter chips).
@@ -162,6 +193,7 @@ export function DailyRecap({
                 <th className="py-2 pr-4 font-normal">Project</th>
                 <th className="py-2 pr-4 font-normal">Target</th>
                 <th className="py-2 pr-4 font-normal">Actual</th>
+                <th className="py-2 pr-4 font-normal">Status</th>
                 <th className="py-2 font-normal">Notes</th>
               </tr>
             </thead>
@@ -170,14 +202,15 @@ export function DailyRecap({
                 d.rows.map((r, ri) => {
                   const key = noteKey(d.iso, r.project.projectId);
                   const sep = ri === 0 && di > 0;
+                  const status = dailyStatus(r.target, r.actual);
                   return (
                     <tr
                       key={key}
-                      className={
+                      className={`${
                         sep
                           ? "border-t-2 border-foreground/20"
                           : "border-t border-foreground/[0.06]"
-                      }
+                      } ${ROW_BG[status]}`}
                     >
                       {ri === 0 && (
                         <td
@@ -200,13 +233,14 @@ export function DailyRecap({
                         {r.target != null && r.target > 0 ? fmtJam(r.target) : "—"}
                       </td>
                       <td
-                        className={`py-3 pr-4 font-mono whitespace-nowrap ${
-                          r.target != null && r.target > 0 && r.actual >= r.target
-                            ? "text-foreground"
-                            : "text-foreground/70"
-                        }`}
+                        className={`py-3 pr-4 font-mono whitespace-nowrap ${STATUS_TEXT[status]}`}
                       >
                         {fmtJam(r.actual)}
+                      </td>
+                      <td
+                        className={`py-3 pr-4 text-xs font-medium whitespace-nowrap ${STATUS_TEXT[status]}`}
+                      >
+                        {STATUS_LABEL[status]}
                       </td>
                       <td className="py-2 pr-0 align-middle">
                         {onSaveNote ? (

@@ -1,7 +1,8 @@
 import { Document, Page, Text, View, StyleSheet, pdf } from "@react-pdf/renderer";
 import type { getWeeklyAggregate } from "@/lib/notion.functions";
 import { fmtJam } from "@/lib/utils";
-import { buildDailyRows, noteKey } from "@/components/DailyRecap";
+import { buildDailyRows, noteKey, dailyStatus, STATUS_LABEL } from "@/components/DailyRecap";
+import type { DailyStatus } from "@/components/DailyRecap";
 
 type WeeklyAgg = Awaited<ReturnType<typeof getWeeklyAggregate>>;
 
@@ -60,14 +61,21 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   dayStart: { borderTop: "1pt solid #222" },
-  cDate: { width: "16%", paddingRight: 6, fontFamily: "Helvetica-Bold" },
-  cProject: { width: "22%", paddingRight: 6, flexDirection: "row", alignItems: "center", gap: 4 },
+  cDate: { width: "14%", paddingRight: 6, fontFamily: "Helvetica-Bold" },
+  cProject: { width: "20%", paddingRight: 6, flexDirection: "row", alignItems: "center", gap: 4 },
   dot: { width: 6, height: 6, borderRadius: 3 },
-  cTarget: { width: "15%", paddingRight: 6, fontFamily: "Helvetica" },
-  cActual: { width: "15%", paddingRight: 6, fontFamily: "Helvetica" },
-  cNotes: { width: "32%", color: "#333" },
-  met: { color: "#0a7a34", fontFamily: "Helvetica-Bold" },
+  cTarget: { width: "13%", paddingRight: 6, fontFamily: "Helvetica" },
+  cActual: { width: "13%", paddingRight: 6, fontFamily: "Helvetica" },
+  cStatus: { width: "16%", paddingRight: 6, fontFamily: "Helvetica-Bold" },
+  cNotes: { width: "24%", color: "#333" },
 });
+
+const STATUS_PDF: Record<DailyStatus, { color: string; bg: string }> = {
+  none: { color: "#888888", bg: "transparent" },
+  far: { color: "#b91c1c", bg: "#fdecec" },
+  near: { color: "#b45309", bg: "#fef6e7" },
+  met: { color: "#0a7a34", bg: "#eafaf0" },
+};
 
 function fmtRange(start: string, end: string) {
   const s = new Date(start);
@@ -111,6 +119,7 @@ export function DailyReportDocument({
           <Text style={[styles.tHeadCell, styles.cProject]}>Project</Text>
           <Text style={[styles.tHeadCell, styles.cTarget]}>Target</Text>
           <Text style={[styles.tHeadCell, styles.cActual]}>Actual</Text>
+          <Text style={[styles.tHeadCell, styles.cStatus]}>Status</Text>
           <Text style={[styles.tHeadCell, styles.cNotes]}>Notes</Text>
         </View>
 
@@ -121,14 +130,16 @@ export function DailyReportDocument({
         ) : (
           days.map((d, di) =>
             d.rows.map((r, ri) => {
-              const met = r.target != null && r.target > 0 && r.actual >= r.target;
+              const status = dailyStatus(r.target, r.actual);
+              const sc = STATUS_PDF[status];
               const sep = ri === 0 && di > 0;
+              const rowStyle = [
+                styles.row,
+                { backgroundColor: sc.bg },
+                ...(sep ? [styles.dayStart] : []),
+              ];
               return (
-                <View
-                  key={`${d.iso}-${r.project.projectId}`}
-                  style={sep ? [styles.row, styles.dayStart] : styles.row}
-                  wrap={false}
-                >
+                <View key={`${d.iso}-${r.project.projectId}`} style={rowStyle} wrap={false}>
                   <Text style={styles.cDate}>{ri === 0 ? d.label : ""}</Text>
                   <View style={styles.cProject}>
                     <View
@@ -139,7 +150,10 @@ export function DailyReportDocument({
                   <Text style={styles.cTarget}>
                     {r.target != null && r.target > 0 ? fmtJam(r.target) : "—"}
                   </Text>
-                  <Text style={[styles.cActual, met ? styles.met : {}]}>{fmtJam(r.actual)}</Text>
+                  <Text style={[styles.cActual, { color: sc.color }]}>{fmtJam(r.actual)}</Text>
+                  <Text style={[styles.cStatus, { color: sc.color }]}>
+                    {status === "none" ? "" : STATUS_LABEL[status]}
+                  </Text>
                   <Text style={styles.cNotes}>
                     {notes[noteKey(d.iso, r.project.projectId)] ?? ""}
                   </Text>
